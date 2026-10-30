@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Electromagnetic Fields Visualizer</title>
+  
+  <!-- KaTeX CSS & JS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Three.js Import Map -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="app-container">
+    <!-- Left Sidebar Controls -->
+    <aside id="sidebar">
+      <header class="app-header">
+        <div class="logo-badge">EMF 3D</div>
+        <h1>Electromagnetic Fields</h1>
+        <p class="subtitle">Interactive Vector Calculus & Field Visualizer</p>
+      </header>
+
+      <section class="control-section">
+        <label for="topic-select" class="section-label">Field Concept</label>
+        <div class="select-wrapper">
+          <select id="topic-select">
+            <option value="coords">Coordinate Systems & Differential Elements</option>
+            <option value="gradient">The Gradient (∇Φ)</option>
+            <option value="divergence">Divergence of a Vector (∇·A)</option>
+            <option value="curl">The Curl of a Vector (∇×A)</option>
+            <option value="laplacian">The Laplacian Operator (∇²Φ)</option>
+            <option value="efield">Electric Field Intensity (E)</option>
+            <option value="energy">Energy in Electrostatic Fields (We)</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="control-section">
+        <label class="section-label">Coordinate System</label>
+        <div class="segmented-control" id="coord-system-control">
+          <button type="button" class="segment-btn active" data-coord="cartesian">Cartesian</button>
+          <button type="button" class="segment-btn" data-coord="cylindrical">Cylindrical</button>
+          <button type="button" class="segment-btn" data-coord="spherical">Spherical</button>
+        </div>
+      </section>
+
+      <section class="control-section">
+        <div class="section-header-row">
+          <label class="section-label">Probe Point P Coordinates</label>
+          <button id="reset-point-btn" class="text-btn" title="Reset Point P">Reset P</button>
+        </div>
+
+        <!-- Dynamic coordinate sliders -->
+        <div class="slider-group" id="slider-group-1">
+          <div class="slider-label-row">
+            <span class="coord-symbol" id="label-u1">x</span>
+            <span class="coord-value" id="val-u1">1.50</span>
+          </div>
+          <input type="range" id="slider-u1" min="-4" max="4" step="0.05" value="1.5">
+        </div>
+
+        <div class="slider-group" id="slider-group-2">
+          <div class="slider-label-row">
+            <span class="coord-symbol" id="label-u2">y</span>
+            <span class="coord-value" id="val-u2">1.50</span>
+          </div>
+          <input type="range" id="slider-u2" min="-4" max="4" step="0.05" value="1.5">
+        </div>
+
+        <div class="slider-group" id="slider-group-3">
+          <div class="slider-label-row">
+            <span class="coord-symbol" id="label-u3">z</span>
+            <span class="coord-value" id="val-u3">1.50</span>
+          </div>
+          <input type="range" id="slider-u3" min="-4" max="4" step="0.05" value="1.5">
+        </div>
+      </section>
+
+      <section class="control-section">
+        <label class="section-label">Field Configuration Mode</label>
+        <button type="button" id="mode-toggle" class="mode-action-btn">
+          <span class="btn-icon">⚡</span>
+          <span id="mode-toggle-text">Toggle Mode</span>
+        </button>
+        <div id="mode-description" class="control-hint">Current mode description</div>
+      </section>
+
+      <section class="control-section">
+        <label class="section-label">Visual Overlays</label>
+        <div class="toggle-grid">
+          <label class="checkbox-row">
+            <input type="checkbox" id="toggle-grid" checked>
+            <span>Coordinate Grid & Axes</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" id="toggle-surfaces" checked>
+            <span>Surfaces / Cloud / Lattice</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" id="toggle-vectors" checked>
+            <span>Vectors / Streamlines</span>
+          </label>
+        </div>
+      </section>
+
+      <footer class="sidebar-footer">
+        <button id="reset-camera-btn" class="secondary-btn">Reset Camera View</button>
+        <div class="version-tag">Vanilla JS · Three.js · KaTeX</div>
+      </footer>
+    </aside>
+
+    <!-- 3D WebGL Viewport -->
+    <main id="viewport-container">
+      <div id="canvas-wrapper"></div>
+
+      <!-- KaTeX & Information HUD Overlay -->
+      <div id="hud-card" class="hud-panel">
+        <div class="hud-header">
+          <div class="hud-title-badge" id="hud-topic-tag">Coordinates</div>
+          <h2 id="hud-title">Coordinate Systems & Metric Factors</h2>
+          <button id="hud-collapse-btn" class="hud-icon-btn" title="Collapse / Expand HUD">_</button>
+        </div>
+
+        <div class="hud-body" id="hud-content">
+          <!-- Active Formula Box (Rendered via KaTeX) -->
+          <div class="hud-section">
+            <div class="hud-subtitle">Active Mathematical Formulation</div>
+            <div id="katex-formula" class="math-display"></div>
+          </div>
+
+          <!-- Live Point Probe Readout -->
+          <div class="hud-section">
+            <div class="hud-subtitle">Probe Point P Real-Time Evaluation</div>
+            <div id="probe-readout" class="readout-grid">
+              <!-- Dynamically populated by ui.js -->
+            </div>
+          </div>
+
+          <!-- Dynamic Concept Readout details -->
+          <div class="hud-section" id="topic-detail-section">
+            <div class="hud-subtitle" id="topic-detail-title">Concept Metrics</div>
+            <div id="katex-detail" class="math-display"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Canvas Navigation Hint -->
+      <div class="nav-hint">
+        <span>Left Click + Drag: Rotate</span> · <span>Right Click + Drag: Pan</span> · <span>Scroll: Zoom</span>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
