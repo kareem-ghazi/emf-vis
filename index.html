@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>3D Electromagnetic Fields Visualizer</title>
-  
+
   <!-- KaTeX CSS & JS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
@@ -12,7 +13,9 @@
   <!-- Google Fonts: Inter & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
 
   <link rel="stylesheet" href="style.css">
 
@@ -26,6 +29,7 @@
   }
   </script>
 </head>
+
 <body>
   <div id="app-container">
     <!-- Left Sidebar Controls -->
@@ -40,7 +44,7 @@
         <label for="topic-select" class="section-label">Field Concept</label>
         <div class="select-wrapper">
           <select id="topic-select">
-            <option value="coords">Coordinate Systems and Spatial Geometries</option>
+            <option value="coords">Coordinate Systems</option>
             <option value="gradient">The Gradient (∇V)</option>
             <option value="divergence">Divergence (∇·A)</option>
             <option value="curl">The Curl (∇×A)</option>
@@ -241,7 +245,7 @@
 
           <!-- Live Point Probe Readout -->
           <div class="hud-section">
-            <div class="hud-subtitle">Probe Point P Real-Time Evaluation</div>
+            <div class="hud-subtitle" id="hud-probe-subtitle">Probe Point P Real-Time Evaluation</div>
             <div id="probe-readout" class="readout-grid">
               <!-- Dynamically populated by ui.js -->
             </div>
@@ -264,4 +268,5 @@
 
   <script type="module" src="main.js"></script>
 </body>
+
 </html>

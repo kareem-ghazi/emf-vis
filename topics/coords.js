@@ -1,5 +1,5 @@
 /**
- * topics/coords.js - Coordinate Systems and Spatial Geometries
+ * topics/coords.js - Coordinate Systems
  * Demonstrates how Cartesian, Circular Cylindrical, and Spherical coordinate systems
  * define points using intersecting surfaces, and how local unit vectors change direction in space.
  */
@@ -155,11 +155,25 @@ function buildSurfaces(coordSystem, params) {
       const sphereMesh = new THREE.Mesh(sphereGeo, new THREE.MeshStandardMaterial({ ...matBase, color: 0x8b5cf6 }));
 
       // 2. Cone theta = const (Pink, apex at origin opening around Z-axis)
-      const coneH = 4.5;
-      const coneR = Math.max(0.01, coneH * Math.tan(theta));
-      const coneGeo = new THREE.ConeGeometry(coneR, coneH, 48, 1, true);
-      coneGeo.translate(0, -coneH / 2, 0); // apex at origin
-      coneGeo.rotateX(-Math.PI / 2); // open around Z-axis
+      const slantL = Math.max(5.0, r + 1.2);
+      const sinTheta = Math.sin(theta);
+      const cosTheta = Math.cos(theta);
+      const coneR = Math.max(0.01, slantL * sinTheta);
+      const coneH = Math.max(0.02, slantL * Math.abs(cosTheta));
+
+      let coneGeo;
+      if (Math.abs(cosTheta) < 0.02) {
+        // At theta ~ 90 deg, the cone becomes a flat circular disk in the X-Y plane
+        coneGeo = new THREE.CircleGeometry(slantL, 48);
+      } else {
+        coneGeo = new THREE.ConeGeometry(coneR, coneH, 48, 1, true);
+        coneGeo.translate(0, -coneH / 2, 0); // apex at origin, base at (0, -coneH, 0)
+        if (cosTheta >= 0) {
+          coneGeo.rotateX(-Math.PI / 2); // open along +Z
+        } else {
+          coneGeo.rotateX(Math.PI / 2); // open along -Z
+        }
+      }
       const coneMesh = new THREE.Mesh(coneGeo, new THREE.MeshStandardMaterial({ ...matBase, color: 0xec4899 }));
 
       // 3. Azimuthal half-plane phi = const (Amber)
@@ -363,8 +377,6 @@ export function update(time, coordSystem, params) {
  */
 export function getFormulaData(coordSystem, params) {
   const u = params.u;
-  const mf = getMetricFactors(u, coordSystem);
-  const { a1, a2, a3 } = getUnitVectors(u, coordSystem);
 
   let formulaLatex = '';
   let detailLatex = '';
@@ -373,74 +385,20 @@ export function getFormulaData(coordSystem, params) {
   switch (coordSystem) {
     case COORD_SYSTEMS.CARTESIAN: {
       formulaLatex = `\\begin{aligned}
-(h_1, h_2, h_3) &= (1, 1, 1) \\\\
-dv &= dx\\,dy\\,dz \\\\
-\\vec{r} &= x\\hat{a}_x + y\\hat{a}_y + z\\hat{a}_z
+d\\vec{l} &= dx\\,\\hat{a}_x + dy\\,\\hat{a}_y + dz\\,\\hat{a}_z \\\\[4pt]
+d\\vec{S} &= dy\\,dz\\,\\hat{a}_x + dx\\,dz\\,\\hat{a}_y + dx\\,dy\\,\\hat{a}_z \\\\[4pt]
+dv &= dx\\,dy\\,dz
 \\end{aligned}`;
 
       detailLatex = `\\begin{aligned}
-\\hat{a}_x &= [1, 0, 0]^T \\\\
-\\hat{a}_y &= [0, 1, 0]^T \\\\
-\\hat{a}_z &= [0, 0, 1]^T
-\\end{aligned}`;
-
-      readout = [
-        { label: 'Coordinates (x, y, z)', value: `(${u[0].toFixed(2)}, ${u[1].toFixed(2)}, ${u[2].toFixed(2)}) m` },
-        { label: 'Differential Volume dv', value: `${(0.5 * 0.5 * 0.5).toFixed(3)} m³` },
-        { label: 'Unit Vector â_x', value: `(${a1.x.toFixed(2)}, ${a1.y.toFixed(2)}, ${a1.z.toFixed(2)})` },
-        { label: 'Unit Vector â_y', value: `(${a2.x.toFixed(2)}, ${a2.y.toFixed(2)}, ${a2.z.toFixed(2)})` },
-        { label: 'Unit Vector â_z', value: `(${a3.x.toFixed(2)}, ${a3.y.toFixed(2)}, ${a3.z.toFixed(2)})` }
-      ];
-      break;
-    }
-
-    case COORD_SYSTEMS.CYLINDRICAL: {
-      const rho = u[0];
-      const phi = u[1];
-      const z = u[2];
-      const phiDeg = (phi * 180 / Math.PI).toFixed(1);
-
-      formulaLatex = `\\begin{aligned}
-x &= \\rho\\cos\\phi, \\quad y = \\rho\\sin\\phi, \\quad z = z \\\\
-(h_1, h_2, h_3) &= (1, \\rho, 1) \\\\
-dv &= \\rho\\,d\\rho\\,d\\phi\\,dz
-\\end{aligned}`;
-
-      detailLatex = `\\begin{aligned}
-\\begin{bmatrix} \\hat{a}_\\rho \\\\ \\hat{a}_\\phi \\\\ \\hat{a}_z \\end{bmatrix} =
+\\begin{bmatrix} \\hat{a}_\\rho \\\\ \\hat{a}_\\phi \\\\ \\hat{a}_z \\end{bmatrix} &=
 \\begin{bmatrix}
 \\cos\\phi & \\sin\\phi & 0 \\\\
 -\\sin\\phi & \\cos\\phi & 0 \\\\
 0 & 0 & 1
 \\end{bmatrix}
-\\begin{bmatrix} \\hat{a}_x \\\\ \\hat{a}_y \\\\ \\hat{a}_z \\end{bmatrix}
-\\end{aligned}`;
-
-      readout = [
-        { label: 'Coordinates (ρ, φ, z)', value: `(${rho.toFixed(2)} m, ${phiDeg}°, ${z.toFixed(2)} m)` },
-        { label: 'Scale Factor h₂ = ρ', value: `${rho.toFixed(2)}` },
-        { label: 'Unit Vector â_ρ', value: `(${a1.x.toFixed(2)}, ${a1.y.toFixed(2)}, ${a1.z.toFixed(2)})` },
-        { label: 'Unit Vector â_φ', value: `(${a2.x.toFixed(2)}, ${a2.y.toFixed(2)}, ${a2.z.toFixed(2)})` },
-        { label: 'Unit Vector â_z', value: `(${a3.x.toFixed(2)}, ${a3.y.toFixed(2)}, ${a3.z.toFixed(2)})` }
-      ];
-      break;
-    }
-
-    case COORD_SYSTEMS.SPHERICAL: {
-      const r = u[0];
-      const theta = u[1];
-      const phi = u[2];
-      const thetaDeg = (theta * 180 / Math.PI).toFixed(1);
-      const phiDeg = (phi * 180 / Math.PI).toFixed(1);
-
-      formulaLatex = `\\begin{aligned}
-x &= r\\sin\\theta\\cos\\phi, \\quad y = r\\sin\\theta\\sin\\phi, \\quad z = r\\cos\\theta \\\\
-(h_1, h_2, h_3) &= (1, r, r\\sin\\theta) \\\\
-dv &= r^2 \\sin\\theta\\,dr\\,d\\theta\\,d\\phi
-\\end{aligned}`;
-
-      detailLatex = `\\begin{aligned}
-\\begin{bmatrix} \\hat{a}_r \\\\ \\hat{a}_\\theta \\\\ \\hat{a}_\\phi \\end{bmatrix} =
+\\begin{bmatrix} \\hat{a}_x \\\\ \\hat{a}_y \\\\ \\hat{a}_z \\end{bmatrix} \\\\[16pt]
+\\begin{bmatrix} \\hat{a}_r \\\\ \\hat{a}_\\theta \\\\ \\hat{a}_\\phi \\end{bmatrix} &=
 \\begin{bmatrix}
 \\sin\\theta\\cos\\phi & \\sin\\theta\\sin\\phi & \\cos\\theta \\\\
 \\cos\\theta\\cos\\phi & \\cos\\theta\\sin\\phi & -\\sin\\theta \\\\
@@ -450,11 +408,78 @@ dv &= r^2 \\sin\\theta\\,dr\\,d\\theta\\,d\\phi
 \\end{aligned}`;
 
       readout = [
-        { label: 'Coordinates (r, θ, φ)', value: `(${r.toFixed(2)} m, ${thetaDeg}°, ${phiDeg}°)` },
-        { label: 'Metric Factors (h₂, h₃)', value: `h₂ = ${mf.h2.toFixed(2)}, h₃ = ${mf.h3.toFixed(2)}` },
-        { label: 'Unit Vector â_r', value: `(${a1.x.toFixed(2)}, ${a1.y.toFixed(2)}, ${a1.z.toFixed(2)})` },
-        { label: 'Unit Vector â_θ', value: `(${a2.x.toFixed(2)}, ${a2.y.toFixed(2)}, ${a2.z.toFixed(2)})` },
-        { label: 'Unit Vector â_φ', value: `(${a3.x.toFixed(2)}, ${a3.y.toFixed(2)}, ${a3.z.toFixed(2)})` }
+        { label: 'Coordinates (x, y, z)', value: `(${u[0].toFixed(2)} m, ${u[1].toFixed(2)} m, ${u[2].toFixed(2)} m)`, fullWidth: true }
+      ];
+      break;
+    }
+
+    case COORD_SYSTEMS.CYLINDRICAL: {
+      const rho = u[0];
+      const phi = u[1];
+      const z = u[2];
+      const phiDeg = ((phi * 180) / Math.PI).toFixed(1);
+
+      formulaLatex = `\\begin{aligned}
+d\\vec{l} &= d\\rho\\,\\hat{a}_\\rho + \\rho\\,d\\phi\\,\\hat{a}_\\phi + dz\\,\\hat{a}_z \\\\[4pt]
+d\\vec{S} &= \\rho\\,d\\phi\\,dz\\,\\hat{a}_\\rho + d\\rho\\,dz\\,\\hat{a}_\\phi + \\rho\\,d\\rho\\,d\\phi\\,\\hat{a}_z \\\\[4pt]
+dv &= \\rho\\,d\\rho\\,d\\phi\\,dz
+\\end{aligned}`;
+
+      detailLatex = `\\begin{aligned}
+\\begin{bmatrix} \\hat{a}_x \\\\ \\hat{a}_y \\\\ \\hat{a}_z \\end{bmatrix} &=
+\\begin{bmatrix}
+\\cos\\phi & -\\sin\\phi & 0 \\\\
+\\sin\\phi & \\cos\\phi & 0 \\\\
+0 & 0 & 1
+\\end{bmatrix}
+\\begin{bmatrix} \\hat{a}_\\rho \\\\ \\hat{a}_\\phi \\\\ \\hat{a}_z \\end{bmatrix} \\\\[16pt]
+\\begin{bmatrix} \\hat{a}_r \\\\ \\hat{a}_\\theta \\\\ \\hat{a}_\\phi \\end{bmatrix} &=
+\\begin{bmatrix}
+\\sin\\theta & 0 & \\cos\\theta \\\\
+\\cos\\theta & 0 & -\\sin\\theta \\\\
+0 & 1 & 0
+\\end{bmatrix}
+\\begin{bmatrix} \\hat{a}_\\rho \\\\ \\hat{a}_\\phi \\\\ \\hat{a}_z \\end{bmatrix}
+\\end{aligned}`;
+
+      readout = [
+        { label: 'Coordinates (ρ, φ, z)', value: `(${rho.toFixed(2)} m, ${phiDeg}°, ${z.toFixed(2)} m)`, fullWidth: true }
+      ];
+      break;
+    }
+
+    case COORD_SYSTEMS.SPHERICAL: {
+      const r = u[0];
+      const theta = u[1];
+      const phi = u[2];
+      const thetaDeg = ((theta * 180) / Math.PI).toFixed(1);
+      const phiDeg = ((phi * 180) / Math.PI).toFixed(1);
+
+      formulaLatex = `\\begin{aligned}
+d\\vec{l} &= dr\\,\\hat{a}_r + r\\,d\\theta\\,\\hat{a}_\\theta + r\\sin\\theta\\,d\\phi\\,\\hat{a}_\\phi \\\\[4pt]
+d\\vec{S} &= r^2\\sin\\theta\\,d\\theta\\,d\\phi\\,\\hat{a}_r + r\\sin\\theta\\,dr\\,d\\phi\\,\\hat{a}_\\theta + r\\,dr\\,d\\theta\\,\\hat{a}_\\phi \\\\[4pt]
+dv &= r^2\\sin\\theta\\,dr\\,d\\theta\\,d\\phi
+\\end{aligned}`;
+
+      detailLatex = `\\begin{aligned}
+\\begin{bmatrix} \\hat{a}_x \\\\ \\hat{a}_y \\\\ \\hat{a}_z \\end{bmatrix} &=
+\\begin{bmatrix}
+\\sin\\theta\\cos\\phi & \\cos\\theta\\cos\\phi & -\\sin\\phi \\\\
+\\sin\\theta\\sin\\phi & \\cos\\theta\\sin\\phi & \\cos\\phi \\\\
+\\cos\\theta & -\\sin\\theta & 0
+\\end{bmatrix}
+\\begin{bmatrix} \\hat{a}_r \\\\ \\hat{a}_\\theta \\\\ \\hat{a}_\\phi \\end{bmatrix} \\\\[16pt]
+\\begin{bmatrix} \\hat{a}_\\rho \\\\ \\hat{a}_\\phi \\\\ \\hat{a}_z \\end{bmatrix} &=
+\\begin{bmatrix}
+\\sin\\theta & \\cos\\theta & 0 \\\\
+0 & 0 & 1 \\\\
+\\cos\\theta & -\\sin\\theta & 0
+\\end{bmatrix}
+\\begin{bmatrix} \\hat{a}_r \\\\ \\hat{a}_\\theta \\\\ \\hat{a}_\\phi \\end{bmatrix}
+\\end{aligned}`;
+
+      readout = [
+        { label: 'Coordinates (r, θ, φ)', value: `(${r.toFixed(2)} m, ${thetaDeg}°, ${phiDeg}°)`, fullWidth: true }
       ];
       break;
     }
@@ -462,11 +487,12 @@ dv &= r^2 \\sin\\theta\\,dr\\,d\\theta\\,d\\phi
 
   return {
     topicTag: 'Coordinates',
-    topicTitle: 'Coordinate Systems and Spatial Geometries',
+    topicTitle: 'Coordinate Systems',
     modeBtnText: 'Focus: Surfaces & dv',
     modeDesc: 'Points are defined by intersecting constant surfaces. Unit vectors change orientation dynamically with position.',
     formulaLatex,
-    detailTitle: 'Unit Vector Transformation Matrix',
+    probeSubtitle: 'Coordinates of Point P',
+    detailTitle: 'Unit Vector Transformation Matrices',
     detailLatex,
     readout
   };

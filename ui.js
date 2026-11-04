@@ -562,6 +562,11 @@ export class UIController {
     if (formulaData.topicTag) this.dom.hudTopicTag.textContent = formulaData.topicTag;
     if (formulaData.topicTitle) this.dom.hudTitle.textContent = formulaData.topicTitle;
 
+    const probeSub = document.getElementById('hud-probe-subtitle');
+    if (probeSub) {
+      probeSub.textContent = formulaData.probeSubtitle || 'Probe Point P Real-Time Evaluation';
+    }
+
     if (formulaData.formulaLatex) {
       this.renderKaTeX(formulaData.formulaLatex, this.dom.katexFormula, true);
     }
@@ -607,39 +612,26 @@ export class UIController {
     const topic = this.state.topic;
     const container = this.dom.calcViewContainer;
     const tabsBar = this.dom.calcTabsBar;
-    this.dom.calcTopicBadge.textContent = topic.toUpperCase();
 
     if (topic === 'coords') {
-      tabsBar.style.display = 'flex';
-      tabsBar.innerHTML = `
-        <button type="button" class="calc-tab-btn ${this.calcState.coordsTab === 'converter' ? 'active' : ''}" data-tab="converter">Converter</button>
-        <button type="button" class="calc-tab-btn ${this.calcState.coordsTab === 'unit_vectors' ? 'active' : ''}" data-tab="unit_vectors">Unit Vectors</button>
-        <button type="button" class="calc-tab-btn ${this.calcState.coordsTab === 'magnitude' ? 'active' : ''}" data-tab="magnitude">Magnitude</button>
-        <button type="button" class="calc-tab-btn ${this.calcState.coordsTab === 'direction' ? 'active' : ''}" data-tab="direction">Direction</button>
-      `;
-
-      tabsBar.querySelectorAll('.calc-tab-btn').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          this.calcState.coordsTab = btn.dataset.tab;
-          this.renderCalculator();
-        });
-      });
-
-      if (this.calcState.coordsTab === 'converter') this.renderCoordsConverter(container);
-      else if (this.calcState.coordsTab === 'unit_vectors') this.renderUnitVectorCalc(container);
-      else if (this.calcState.coordsTab === 'magnitude') this.renderMagnitudeCalc(container);
-      else this.renderDirectionCalc(container);
+      tabsBar.style.display = 'none';
+      this.dom.calcTopicBadge.textContent = 'CONVERTER';
+      this.calcState.coordsTab = 'converter';
+      this.renderCoordsConverter(container);
 
     } else if (topic === 'gradient') {
       tabsBar.style.display = 'none';
+      this.dom.calcTopicBadge.textContent = 'GRADIENT';
       this.renderGradientCalculator(container);
 
     } else if (topic === 'divergence') {
       tabsBar.style.display = 'none';
+      this.dom.calcTopicBadge.textContent = 'DIVERGENCE';
       this.renderDivergenceCalculator(container);
 
     } else if (topic === 'curl') {
       tabsBar.style.display = 'none';
+      this.dom.calcTopicBadge.textContent = 'CURL';
       this.renderCurlCalculator(container);
     }
   }
@@ -648,6 +640,27 @@ export class UIController {
   renderCoordsConverter(container) {
     const u = this.calcState.convU;
     const res = convertCoordinatesAll(this.calcState.convFrom, u, this.calcState.convAngleMode);
+
+    let sym1 = 'x', sym2 = 'y', sym3 = 'z';
+    let unit1 = '(m)', unit2 = '(m)', unit3 = '(m)';
+    let step1 = '0.1', step2 = '0.1', step3 = '0.1';
+
+    if (this.calcState.convFrom === 'cartesian') {
+      sym1 = 'x'; unit1 = '(m)';
+      sym2 = 'y'; unit2 = '(m)';
+      sym3 = 'z'; unit3 = '(m)';
+    } else if (this.calcState.convFrom === 'cylindrical') {
+      sym1 = 'ρ'; unit1 = '(m)';
+      sym2 = 'φ'; unit2 = '(deg)';
+      sym3 = 'z'; unit3 = '(m)';
+      step2 = '1';
+    } else if (this.calcState.convFrom === 'spherical') {
+      sym1 = 'r'; unit1 = '(m)';
+      sym2 = 'θ'; unit2 = '(deg)';
+      sym3 = 'φ'; unit3 = '(deg)';
+      step2 = '1';
+      step3 = '1';
+    }
 
     container.innerHTML = `
       <div class="calc-result-box" style="margin-bottom: 6px;">
@@ -661,16 +674,16 @@ export class UIController {
 
       <div class="calc-input-row">
         <div class="calc-input-box">
-          <span class="calc-input-label">u₁</span>
-          <input type="number" step="0.1" class="calc-input-field" id="calc-conv-u1" value="${u[0]}">
+          <span class="calc-input-label"><span class="calc-sym">${sym1}</span> <span class="calc-unit">${unit1}</span></span>
+          <input type="number" step="${step1}" class="calc-input-field" id="calc-conv-u1" value="${u[0]}">
         </div>
         <div class="calc-input-box">
-          <span class="calc-input-label">u₂ (${this.calcState.convFrom !== 'cartesian' ? 'deg' : 'm'})</span>
-          <input type="number" step="1" class="calc-input-field" id="calc-conv-u2" value="${u[1]}">
+          <span class="calc-input-label"><span class="calc-sym">${sym2}</span> <span class="calc-unit">${unit2}</span></span>
+          <input type="number" step="${step2}" class="calc-input-field" id="calc-conv-u2" value="${u[1]}">
         </div>
         <div class="calc-input-box">
-          <span class="calc-input-label">u₃ (${this.calcState.convFrom === 'spherical' ? 'deg' : 'm'})</span>
-          <input type="number" step="0.1" class="calc-input-field" id="calc-conv-u3" value="${u[2]}">
+          <span class="calc-input-label"><span class="calc-sym">${sym3}</span> <span class="calc-unit">${unit3}</span></span>
+          <input type="number" step="${step3}" class="calc-input-field" id="calc-conv-u3" value="${u[2]}">
         </div>
       </div>
 
@@ -678,18 +691,29 @@ export class UIController {
         <div class="calc-result-title">Converted Coordinate Representations</div>
         <div class="calc-result-item">
           <span class="lbl">Cartesian (x, y, z):</span>
-          <span class="val">(${res.cartesian.x.toFixed(2)}, ${res.cartesian.y.toFixed(2)}, ${res.cartesian.z.toFixed(2)}) m</span>
+          <span class="val" id="calc-conv-res-cart">(${res.cartesian.x.toFixed(2)}, ${res.cartesian.y.toFixed(2)}, ${res.cartesian.z.toFixed(2)}) m</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Cylindrical (ρ, φ, z):</span>
-          <span class="val">(${res.cylindrical.rho.toFixed(2)} m, ${res.cylindrical.phiDeg.toFixed(1)}°, ${res.cylindrical.z.toFixed(2)} m)</span>
+          <span class="val" id="calc-conv-res-cyl">(${res.cylindrical.rho.toFixed(2)} m, ${res.cylindrical.phiDeg.toFixed(1)}°, ${res.cylindrical.z.toFixed(2)} m)</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Spherical (r, θ, φ):</span>
-          <span class="val">(${res.spherical.r.toFixed(2)} m, ${res.spherical.thetaDeg.toFixed(1)}°, ${res.spherical.phiDeg.toFixed(1)}°)</span>
+          <span class="val" id="calc-conv-res-sph">(${res.spherical.r.toFixed(2)} m, ${res.spherical.thetaDeg.toFixed(1)}°, ${res.spherical.phiDeg.toFixed(1)}°)</span>
         </div>
       </div>
     `;
+
+    const resCart = container.querySelector('#calc-conv-res-cart');
+    const resCyl = container.querySelector('#calc-conv-res-cyl');
+    const resSph = container.querySelector('#calc-conv-res-sph');
+
+    const updateResults = () => {
+      const updatedRes = convertCoordinatesAll(this.calcState.convFrom, this.calcState.convU, this.calcState.convAngleMode);
+      if (resCart) resCart.textContent = `(${updatedRes.cartesian.x.toFixed(2)}, ${updatedRes.cartesian.y.toFixed(2)}, ${updatedRes.cartesian.z.toFixed(2)}) m`;
+      if (resCyl) resCyl.textContent = `(${updatedRes.cylindrical.rho.toFixed(2)} m, ${updatedRes.cylindrical.phiDeg.toFixed(1)}°, ${updatedRes.cylindrical.z.toFixed(2)} m)`;
+      if (resSph) resSph.textContent = `(${updatedRes.spherical.r.toFixed(2)} m, ${updatedRes.spherical.thetaDeg.toFixed(1)}°, ${updatedRes.spherical.phiDeg.toFixed(1)}°)`;
+    };
 
     container.querySelectorAll('#calc-conv-src-sys .segment-btn').forEach((b) => {
       b.addEventListener('click', () => {
@@ -701,8 +725,9 @@ export class UIController {
     ['u1', 'u2', 'u3'].forEach((id, idx) => {
       const el = container.querySelector(`#calc-conv-${id}`);
       el.addEventListener('input', (e) => {
-        this.calcState.convU[idx] = parseFloat(e.target.value) || 0;
-        this.renderCalculator();
+        const val = parseFloat(e.target.value);
+        this.calcState.convU[idx] = isNaN(val) ? 0 : val;
+        updateResults();
       });
     });
   }
@@ -777,16 +802,19 @@ export class UIController {
         </div>
         <div class="calc-result-item">
           <span class="lbl">Magnitude |A|:</span>
-          <span class="val">${mag.toFixed(4)}</span>
+          <span class="val" id="calc-mag-val">${mag.toFixed(4)}</span>
         </div>
       </div>
     `;
 
+    const valEl = container.querySelector('#calc-mag-val');
     ['ax', 'ay', 'az'].forEach((id, idx) => {
       const el = container.querySelector(`#calc-mag-${id}`);
       el.addEventListener('input', (e) => {
-        this.calcState.magVector[idx] = parseFloat(e.target.value) || 0;
-        this.renderCalculator();
+        const val = parseFloat(e.target.value);
+        this.calcState.magVector[idx] = isNaN(val) ? 0 : val;
+        const currentMag = Math.sqrt(this.calcState.magVector[0] ** 2 + this.calcState.magVector[1] ** 2 + this.calcState.magVector[2] ** 2);
+        if (valEl) valEl.textContent = currentMag.toFixed(4);
       });
     });
   }
@@ -816,28 +844,42 @@ export class UIController {
         <div class="calc-result-title">Direction Angles & Unit Direction Vector</div>
         <div class="calc-result-item">
           <span class="lbl">Unit Vector û_A:</span>
-          <span class="val">(${res.unitVector.x.toFixed(3)}, ${res.unitVector.y.toFixed(3)}, ${res.unitVector.z.toFixed(3)})</span>
+          <span class="val" id="calc-dir-unit">(${res.unitVector.x.toFixed(3)}, ${res.unitVector.y.toFixed(3)}, ${res.unitVector.z.toFixed(3)})</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Direction Cosines:</span>
-          <span class="val">(${res.directionCosines.cosAlpha.toFixed(3)}, ${res.directionCosines.cosBeta.toFixed(3)}, ${res.directionCosines.cosGamma.toFixed(3)})</span>
+          <span class="val" id="calc-dir-cos">(${res.directionCosines.cosAlpha.toFixed(3)}, ${res.directionCosines.cosBeta.toFixed(3)}, ${res.directionCosines.cosGamma.toFixed(3)})</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Direction Angles (α, β, γ):</span>
-          <span class="val">(${res.directionAngles.alphaDeg.toFixed(1)}°, ${res.directionAngles.betaDeg.toFixed(1)}°, ${res.directionAngles.gammaDeg.toFixed(1)}°)</span>
+          <span class="val" id="calc-dir-angles">(${res.directionAngles.alphaDeg.toFixed(1)}°, ${res.directionAngles.betaDeg.toFixed(1)}°, ${res.directionAngles.gammaDeg.toFixed(1)}°)</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Spherical Angles (θ, φ):</span>
-          <span class="val">θ = ${res.sphericalAngles.thetaDeg.toFixed(1)}°, φ = ${res.sphericalAngles.phiDeg.toFixed(1)}°</span>
+          <span class="val" id="calc-dir-sph">θ = ${res.sphericalAngles.thetaDeg.toFixed(1)}°, φ = ${res.sphericalAngles.phiDeg.toFixed(1)}°</span>
         </div>
       </div>
     `;
 
+    const unitEl = container.querySelector('#calc-dir-unit');
+    const cosEl = container.querySelector('#calc-dir-cos');
+    const anglesEl = container.querySelector('#calc-dir-angles');
+    const sphEl = container.querySelector('#calc-dir-sph');
+
+    const updateDirResults = () => {
+      const updated = calculateVectorMagnitudeAndDirection(this.calcState.dirVector);
+      if (unitEl) unitEl.textContent = `(${updated.unitVector.x.toFixed(3)}, ${updated.unitVector.y.toFixed(3)}, ${updated.unitVector.z.toFixed(3)})`;
+      if (cosEl) cosEl.textContent = `(${updated.directionCosines.cosAlpha.toFixed(3)}, ${updated.directionCosines.cosBeta.toFixed(3)}, ${updated.directionCosines.cosGamma.toFixed(3)})`;
+      if (anglesEl) anglesEl.textContent = `(${updated.directionAngles.alphaDeg.toFixed(1)}°, ${updated.directionAngles.betaDeg.toFixed(1)}°, ${updated.directionAngles.gammaDeg.toFixed(1)}°)`;
+      if (sphEl) sphEl.textContent = `θ = ${updated.sphericalAngles.thetaDeg.toFixed(1)}°, φ = ${updated.sphericalAngles.phiDeg.toFixed(1)}°`;
+    };
+
     ['ax', 'ay', 'az'].forEach((id, idx) => {
       const el = container.querySelector(`#calc-dir-${id}`);
       el.addEventListener('input', (e) => {
-        this.calcState.dirVector[idx] = parseFloat(e.target.value) || 0;
-        this.renderCalculator();
+        const val = parseFloat(e.target.value);
+        this.calcState.dirVector[idx] = isNaN(val) ? 0 : val;
+        updateDirResults();
       });
     });
   }
@@ -873,33 +915,47 @@ export class UIController {
         <div class="calc-result-title">Evaluated Gradient Vector & Steepest Slope</div>
         <div class="calc-result-item">
           <span class="lbl">Scalar Value f(P):</span>
-          <span class="val">${res.value.toFixed(4)}</span>
+          <span class="val" id="calc-grad-val">${res.value.toFixed(4)}</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Gradient Vector ∇f:</span>
-          <span class="val">(${res.gradient.gx.toFixed(3)}, ${res.gradient.gy.toFixed(3)}, ${res.gradient.gz.toFixed(3)})</span>
+          <span class="val" id="calc-grad-vec">(${res.gradient.gx.toFixed(3)}, ${res.gradient.gy.toFixed(3)}, ${res.gradient.gz.toFixed(3)})</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Slope Magnitude |∇f|:</span>
-          <span class="val">${res.magnitude.toFixed(4)} V/m</span>
+          <span class="val" id="calc-grad-mag">${res.magnitude.toFixed(4)} V/m</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Steepest Climb Direction:</span>
-          <span class="val">(${res.unitDirection.x.toFixed(3)}, ${res.unitDirection.y.toFixed(3)}, ${res.unitDirection.z.toFixed(3)})</span>
+          <span class="val" id="calc-grad-dir">(${res.unitDirection.x.toFixed(3)}, ${res.unitDirection.y.toFixed(3)}, ${res.unitDirection.z.toFixed(3)})</span>
         </div>
       </div>
     `;
 
+    const valEl = container.querySelector('#calc-grad-val');
+    const vecEl = container.querySelector('#calc-grad-vec');
+    const magEl = container.querySelector('#calc-grad-mag');
+    const dirEl = container.querySelector('#calc-grad-dir');
+
+    const updateGradResults = () => {
+      const updated = calculateGradientAt(this.calcState.gradPreset, this.calcState.gradPoint[0], this.calcState.gradPoint[1], this.calcState.gradPoint[2]);
+      if (valEl) valEl.textContent = updated.value.toFixed(4);
+      if (vecEl) vecEl.textContent = `(${updated.gradient.gx.toFixed(3)}, ${updated.gradient.gy.toFixed(3)}, ${updated.gradient.gz.toFixed(3)})`;
+      if (magEl) magEl.textContent = `${updated.magnitude.toFixed(4)} V/m`;
+      if (dirEl) dirEl.textContent = `(${updated.unitDirection.x.toFixed(3)}, ${updated.unitDirection.y.toFixed(3)}, ${updated.unitDirection.z.toFixed(3)})`;
+    };
+
     container.querySelector('#calc-grad-preset-sel').addEventListener('change', (e) => {
       this.calcState.gradPreset = e.target.value;
-      this.renderCalculator();
+      updateGradResults();
     });
 
     ['x', 'y', 'z'].forEach((id, idx) => {
       const el = container.querySelector(`#calc-grad-${id}`);
       el.addEventListener('input', (e) => {
-        this.calcState.gradPoint[idx] = parseFloat(e.target.value) || 0;
-        this.renderCalculator();
+        const val = parseFloat(e.target.value);
+        this.calcState.gradPoint[idx] = isNaN(val) ? 0 : val;
+        updateGradResults();
       });
     });
   }
@@ -925,28 +981,45 @@ export class UIController {
         <div class="calc-result-title">Divergence of Active 4-Point Field (Image 1)</div>
         <div class="calc-result-item">
           <span class="lbl">Field Vector A(x, y):</span>
-          <span class="val">(${res.field.Fx.toFixed(3)}, ${res.field.Fy.toFixed(3)})</span>
+          <span class="val" id="calc-div-field">(${res.field.Fx.toFixed(3)}, ${res.field.Fy.toFixed(3)})</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Field Magnitude |A|:</span>
-          <span class="val">${res.fieldMagnitude.toFixed(3)}</span>
+          <span class="val" id="calc-div-mag">${res.fieldMagnitude.toFixed(3)}</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Divergence ∇·A:</span>
-          <span class="val" style="color: ${res.divergence >= 0 ? '#4ade80' : '#60a5fa'}; font-size: 12px;">${res.divergence >= 0 ? '+' : ''}${res.divergence.toFixed(3)} s⁻¹</span>
+          <span class="val" id="calc-div-val" style="color: ${res.divergence >= 0 ? '#4ade80' : '#60a5fa'}; font-size: 12px;">${res.divergence >= 0 ? '+' : ''}${res.divergence.toFixed(3)} s⁻¹</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Classification:</span>
-          <span class="val" style="color: #facc15;">${res.classification}</span>
+          <span class="val" id="calc-div-class" style="color: #facc15;">${res.classification}</span>
         </div>
       </div>
     `;
 
+    const fieldEl = container.querySelector('#calc-div-field');
+    const magEl = container.querySelector('#calc-div-mag');
+    const divEl = container.querySelector('#calc-div-val');
+    const classEl = container.querySelector('#calc-div-class');
+
+    const updateDivResults = () => {
+      const updated = calculateDivergenceAt(this.state.divPoints, this.calcState.divEvalPoint[0], this.calcState.divEvalPoint[1]);
+      if (fieldEl) fieldEl.textContent = `(${updated.field.Fx.toFixed(3)}, ${updated.field.Fy.toFixed(3)})`;
+      if (magEl) magEl.textContent = updated.fieldMagnitude.toFixed(3);
+      if (divEl) {
+        divEl.style.color = updated.divergence >= 0 ? '#4ade80' : '#60a5fa';
+        divEl.textContent = `${updated.divergence >= 0 ? '+' : ''}${updated.divergence.toFixed(3)} s⁻¹`;
+      }
+      if (classEl) classEl.textContent = updated.classification;
+    };
+
     ['x', 'y'].forEach((id, idx) => {
       const el = container.querySelector(`#calc-div-${id}`);
       el.addEventListener('input', (e) => {
-        this.calcState.divEvalPoint[idx] = parseFloat(e.target.value) || 0;
-        this.renderCalculator();
+        const val = parseFloat(e.target.value);
+        this.calcState.divEvalPoint[idx] = isNaN(val) ? 0 : val;
+        updateDivResults();
       });
     });
   }
@@ -972,32 +1045,51 @@ export class UIController {
         <div class="calc-result-title">Curl of Active 4-Vortex Field (Image 2)</div>
         <div class="calc-result-item">
           <span class="lbl">Velocity A(x, y):</span>
-          <span class="val">(${res.field.Fx.toFixed(3)}, ${res.field.Fy.toFixed(3)})</span>
+          <span class="val" id="calc-curl-field">(${res.field.Fx.toFixed(3)}, ${res.field.Fy.toFixed(3)})</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Velocity Magnitude |A|:</span>
-          <span class="val">${res.fieldMagnitude.toFixed(3)}</span>
+          <span class="val" id="calc-curl-mag">${res.fieldMagnitude.toFixed(3)}</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Curl (∇×A)_z:</span>
-          <span class="val" style="color: ${res.curlZ >= 0 ? '#facc15' : '#60a5fa'}; font-size: 12px;">${res.curlZ >= 0 ? '+' : ''}${res.curlZ.toFixed(3)} rad/s</span>
+          <span class="val" id="calc-curl-val" style="color: ${res.curlZ >= 0 ? '#facc15' : '#60a5fa'}; font-size: 12px;">${res.curlZ >= 0 ? '+' : ''}${res.curlZ.toFixed(3)} rad/s</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Angular Velocity ω_z:</span>
-          <span class="val">${(res.angularVelocityZ).toFixed(3)} rad/s</span>
+          <span class="val" id="calc-curl-omega">${(res.angularVelocityZ).toFixed(3)} rad/s</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Classification:</span>
-          <span class="val" style="color: #f43f5e;">${res.classification}</span>
+          <span class="val" id="calc-curl-class" style="color: #f43f5e;">${res.classification}</span>
         </div>
       </div>
     `;
 
+    const fieldEl = container.querySelector('#calc-curl-field');
+    const magEl = container.querySelector('#calc-curl-mag');
+    const curlEl = container.querySelector('#calc-curl-val');
+    const omegaEl = container.querySelector('#calc-curl-omega');
+    const classEl = container.querySelector('#calc-curl-class');
+
+    const updateCurlResults = () => {
+      const updated = calculateCurlAt(this.state.curlVortices, this.calcState.curlEvalPoint[0], this.calcState.curlEvalPoint[1]);
+      if (fieldEl) fieldEl.textContent = `(${updated.field.Fx.toFixed(3)}, ${updated.field.Fy.toFixed(3)})`;
+      if (magEl) magEl.textContent = updated.fieldMagnitude.toFixed(3);
+      if (curlEl) {
+        curlEl.style.color = updated.curlZ >= 0 ? '#facc15' : '#60a5fa';
+        curlEl.textContent = `${updated.curlZ >= 0 ? '+' : ''}${updated.curlZ.toFixed(3)} rad/s`;
+      }
+      if (omegaEl) omegaEl.textContent = `${updated.angularVelocityZ.toFixed(3)} rad/s`;
+      if (classEl) classEl.textContent = updated.classification;
+    };
+
     ['x', 'y'].forEach((id, idx) => {
       const el = container.querySelector(`#calc-curl-${id}`);
       el.addEventListener('input', (e) => {
-        this.calcState.curlEvalPoint[idx] = parseFloat(e.target.value) || 0;
-        this.renderCalculator();
+        const val = parseFloat(e.target.value);
+        this.calcState.curlEvalPoint[idx] = isNaN(val) ? 0 : val;
+        updateCurlResults();
       });
     });
   }

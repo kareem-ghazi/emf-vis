@@ -37,8 +37,8 @@ class AppController {
     const aspect = this.container.clientWidth / this.container.clientHeight;
     this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 100);
     this.camera.up.set(0, 0, 1);
-    this.camera.position.set(7.5, -8.5, 6.0);
-    this.camera.lookAt(0, 0, 0);
+    this.camera.position.set(5.8, 5.8, 4.5);
+    this.camera.lookAt(0.75, 0.75, 0.75);
 
     // WebGL Renderer
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -52,7 +52,7 @@ class AppController {
     this.controls.dampingFactor = 0.05;
     this.controls.maxDistance = 40;
     this.controls.minDistance = 1;
-    this.controls.target.set(0, 0, 0);
+    this.controls.target.set(0.75, 0.75, 0.75);
 
     // Helpers & Lighting
     this.initEnvironment();
@@ -113,10 +113,15 @@ class AppController {
       this.camera.up.set(0, 1, 0);
       this.camera.position.set(0, 0, 7.8);
       this.controls.target.set(0, 0, 0);
-    } else {
+    } else if (topicId === 'coords') {
       this.camera.up.set(0, 0, 1);
-      this.camera.position.set(7.5, -8.5, 6.0);
-      this.controls.target.set(0, 0, 0);
+      this.camera.position.set(5.8, 5.8, 4.5);
+      this.controls.target.set(0.75, 0.75, 0.75);
+    } else {
+      // gradient
+      this.camera.up.set(0, 0, 1);
+      this.camera.position.set(6.0, 6.0, 5.0);
+      this.controls.target.set(0, 0, 0.5);
     }
     this.controls.update();
   }

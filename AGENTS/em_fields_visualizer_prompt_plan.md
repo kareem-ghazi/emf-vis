@@ -6,11 +6,13 @@ You are a Senior Scientific Computing Developer and 3D Graphics Programmer. Your
 
 The application contains **EXACTLY 4 specialized educational topics**, designed with interactive visual clarity, high-fidelity aesthetic modeling (including 3Blue1Brown style), and rigorous mathematical backing:
 
-1. **Coordinate Systems and Spatial Geometries**:
+1. **Coordinate Systems**:
    - Visualize how Cartesian (rectangular), circular cylindrical, and spherical coordinate systems define points using intersecting surfaces (planes, cylinders, cones, and spheres).
-   - Visualize how curvilinear unit vectors dynamically change direction in space as the probe point moves.
-   - Interactive 3D differential spatial volume element ($dv$).
-   - Built-in Scientific Calculators: Coordinate System Converter (Cartesian $\leftrightarrow$ Cylindrical $\leftrightarrow$ Spherical), Unit Vector Calculator, Magnitude Calculator, and Direction Cosine/Angle Calculator.
+   - Robust cone geometry ($\theta = \text{const}$) with slant-length parameterization ensuring smooth continuity across all polar angles $\theta \in (0, \pi)$ without disappearing when crossing $\theta = 90^\circ$.
+   - Mathematical formulation panel containing strictly the differential elements: $d\vec{l}$, $d\vec{S}$, and $dv$.
+   - Point readout displaying solely evaluated point coordinates.
+   - Comprehensive unit vector transformation matrices for the other two coordinate systems.
+   - Simplified Scientific Calculator dedicated solely to coordinate conversions, dynamically reflecting the source coordinate system inputs ($x, y, z$, $\rho, \phi, z$, or $r, \theta, \phi$) with enlarged math symbols.
 
 2. **The Gradient ($\nabla V$)**:
    - Visualized as the path of steepest ascent on a 3D topographical scalar potential hill in Cartesian coordinates.
@@ -104,7 +106,7 @@ The application contains **EXACTLY 4 specialized educational topics**, designed 
 │   ├── em_fields_visualizer_prompt_plan.md   # Master plan & progress tracking
 │   └── project_state.md                      # Live project state documentation
 └── topics/
-    ├── coords.js         # 1. Coordinate Systems and Spatial Geometries
+    ├── coords.js         # 1. Coordinate Systems
     ├── gradient.js       # 2. The Gradient (∇V Topographical Ascent)
     ├── divergence.js     # 3. Divergence (∇·A 4-Point Sources & Sinks)
     └── curl.js           # 4. The Curl (∇×A 3Blue1Brown 4-Vortex Vorticity)
@@ -122,3 +124,4 @@ The application contains **EXACTLY 4 specialized educational topics**, designed 
 - [x] Phase 6: Full Suite of Scientific Calculators (Coord Converter, Unit Vector, Magnitude, Direction, Grad, Div, Curl)
 - [x] Phase 7: Vite Production Build & npm Audit Security Verification (0 vulnerabilities)
 - [x] Phase 8: AGENTS Documentation Synchronization
+- [x] Phase 9: Persistent Input Focus across Calculator Suite & Face View Camera Positioning for Probe Point P
