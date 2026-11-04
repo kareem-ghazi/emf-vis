@@ -77,10 +77,11 @@ Key Highlights of this Refinement:
 
 ### 2. The Gradient ($\nabla V$) (`topics/gradient.js`)
 - **Topographical Potential Hill**: 3D surface $z = V(x, y)$ in Cartesian coordinates with no probe ball, polygon offset to eliminate Z-fighting, and 3 distinct profiles: Single Gaussian Peak, Twin Peaks (Dipole Potential), and Volcano Crater / Ring Ridge.
-- **Surface Tangent Gradient Vectors**: 3D gradient vector arrows lie directly tangent to the surface pointing uphill, strictly perpendicular to equipotential contour rings ($V = \text{const}$).
+- **Dynamic Hill Spread Across All Profiles**: The `hillSpread` parameter is fully active across all 3 profiles, dynamically scaling peak variance in Twin Peaks and crater rim radius & flank breadth in Volcano Crater, with synchronized contour rings and peak altitude readouts.
+- **Surface Tangent Gradient Vectors**: 3D gradient vector arrows lie directly tangent to the surface pointing uphill, strictly perpendicular to equipotential contour rings ($V = \text{const}$). Vector arrows are projected with a normal offset and have depth testing disabled (`depthTest: false`, `renderOrder: 8`) to guarantee they never clip or submerge into the hill geometry regardless of spread or slope steepness.
 - **Non-Flashing Streamlines & Particles**: Robust Runge-Kutta steepest ascent streamlines for all 3 profiles; particles follow individual continuous phases with soft circular glow textures and smooth summit dissolve, completely eliminating flashing lines and summit clumping.
 - **Streamlined HUD Formulation**: Features the complete mathematical formulation of the gradient across all three coordinate systems (Cartesian, Cylindrical, Spherical), along with the active hill profile and peak altitude only.
-- **Natural Keyboard Gradient Calculator**: Custom function input allows natural typing (e.g. `x^2 + y^2 + z` or `3.5*exp(-(x^2+y^2)/3)`) with real-time automatic conversion to LaTeX preview via KaTeX; evaluates scalar potential $V(P)$, gradient vector $\nabla V$, and slope magnitude $|\nabla V|$ at point $(x, y, z)$ without focus loss.
+- **Natural Keyboard Gradient Calculator**: Custom function input allows natural typing (e.g. `x^2 + y^2 + z` or `3.5 * exp(-(x^2 + y^2)/3)`) with real-time automatic conversion to LaTeX preview via KaTeX; evaluates scalar potential $V(P)$, gradient vector $\nabla V$, and slope magnitude $|\nabla V|$ at point $(x, y, z)$ without focus loss. Robust tokenizer preserves full function names (`exp`, `sin`, `cos`, `tan`, `log`, `ln`, `sqrt`, `abs`) and supports implicit multiplications.
 
 ### 3. Divergence ($\nabla \cdot \vec{A}$) (`topics/divergence.js`)
 - **Image 1 Styling**: Deep dark background, dense 2D vector field grid.

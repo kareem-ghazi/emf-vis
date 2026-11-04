@@ -45,21 +45,26 @@ function getGlowTexture() {
 }
 
 /**
- * Evaluates the scalar field height V(x, y) based on active profile
+ * Evaluates the scalar field height V(x, y) based on active profile.
+ * hillSpread controls the peak width / spread in all three profiles.
  */
 export function evalScalar(x, y) {
   const r2 = x * x + y * y;
+  const spread = Math.max(0.5, hillSpread);
+
   if (currentHillProfile === 0) {
-    // Single Gaussian Peak
-    return hillAmplitude * Math.exp(-r2 / Math.max(0.5, hillSpread));
+    // Single Gaussian Peak: spread directly scales standard deviation
+    return hillAmplitude * Math.exp(-r2 / spread);
   } else if (currentHillProfile === 1) {
-    // Twin Peaks (Dipole potential)
+    // Twin Peaks (Dipole potential): spread scales both peak widths
+    const s1 = spread * 0.65;
     const r1 = (x - 1.4) * (x - 1.4) + y * y;
     const r2 = (x + 1.4) * (x + 1.4) + y * y;
-    return (hillAmplitude * 0.95) * (Math.exp(-r1 / 2.0) + Math.exp(-r2 / 2.0));
+    return (hillAmplitude * 0.95) * (Math.exp(-r1 / s1) + Math.exp(-r2 / s1));
   } else {
-    // Volcano Crater / Ring Ridge (peak at r ~ 1.4)
-    return (hillAmplitude * 1.35) * (r2 / 2.0) * Math.exp(-r2 / 2.5);
+    // Volcano Crater / Ring Ridge: spread scales crater radius and outer flanks
+    const s2 = spread * 0.8;
+    return (hillAmplitude * 1.35) * (r2 / (s2 * 0.8)) * Math.exp(-r2 / s2);
   }
 }
 
@@ -73,15 +78,17 @@ export function evalGrad(x, y, eps = 1e-4) {
 }
 
 /**
- * Evaluates peak altitude for active profile
+ * Evaluates peak altitude for active profile dynamically with spread
  */
 function getPeakAltitude() {
+  const spread = Math.max(0.5, hillSpread);
   if (currentHillProfile === 0) {
     return evalScalar(0, 0);
   } else if (currentHillProfile === 1) {
     return evalScalar(1.4, 0);
   } else {
-    return evalScalar(Math.sqrt(2.5), 0);
+    const rRidge = Math.sqrt(spread * 0.8);
+    return evalScalar(rRidge, 0);
   }
 }
 
@@ -174,7 +181,7 @@ function buildScene(params) {
   // 2. Equipotential Contour Rings (V = const)
   buildContourRings(maxZ);
 
-  // 3. 3D Surface Tangent Gradient Vector Arrows
+  // 3. 3D Surface Tangent Gradient Vector Arrows (Floating reliably above surface)
   buildGradientArrows();
 
   // 4. Stable Steepest Ascent Streamlines & Particles
@@ -193,74 +200,107 @@ function buildContourRings(maxZ) {
     depthWrite: false
   });
 
+  const spread = Math.max(0.5, hillSpread);
+
   for (let c = 1; c <= numContours; c++) {
     const targetV = (c / (numContours + 1)) * maxZ;
 
     if (currentHillProfile === 0) {
       // Concentric circles for Single Peak
-      const r = Math.sqrt(Math.max(0, -hillSpread * Math.log(Math.max(1e-4, targetV / hillAmplitude))));
+      const r = Math.sqrt(Math.max(0, -spread * Math.log(Math.max(1e-4, targetV / hillAmplitude))));
       if (r > 0.08 && r < 3.0) {
         const pts = [];
         for (let a = 0; a <= 64; a++) {
           const theta = (a / 64) * 2 * Math.PI;
-          pts.push(new THREE.Vector3(r * Math.cos(theta), r * Math.sin(theta), targetV + 0.025));
+          pts.push(new THREE.Vector3(r * Math.cos(theta), r * Math.sin(theta), targetV + 0.035));
         }
         const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
         contourGroup.add(new THREE.Line(lineGeo, ringMat));
       }
     } else if (currentHillProfile === 1) {
-      // Loops around Twin Peaks
+      // Loops around Twin Peaks dynamically scaling with spread
+      const s1 = spread * 0.65;
       [-1.4, 1.4].forEach(cx => {
-        const rApprox = Math.sqrt(Math.max(0, -2.0 * Math.log(Math.max(1e-4, targetV / (hillAmplitude * 0.95)))));
+        const rApprox = Math.sqrt(Math.max(0, -s1 * Math.log(Math.max(1e-4, targetV / (hillAmplitude * 0.95)))));
         if (rApprox > 0.05 && rApprox < 1.3) {
           const pts = [];
           for (let a = 0; a <= 48; a++) {
             const theta = (a / 48) * 2 * Math.PI;
-            pts.push(new THREE.Vector3(cx + rApprox * Math.cos(theta), rApprox * Math.sin(theta), targetV + 0.025));
+            pts.push(new THREE.Vector3(cx + rApprox * Math.cos(theta), rApprox * Math.sin(theta), targetV + 0.035));
           }
           const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
           contourGroup.add(new THREE.Line(lineGeo, ringMat));
         }
       });
     } else {
-      // Volcano Crater: two rings (inner crater + outer slope)
-      [0.75, 1.95].forEach(rEst => {
-        const pts = [];
-        for (let a = 0; a <= 64; a++) {
-          const theta = (a / 64) * 2 * Math.PI;
-          const x = rEst * Math.cos(theta);
-          const y = rEst * Math.sin(theta);
-          pts.push(new THREE.Vector3(x, y, evalScalar(x, y) + 0.025));
+      // Volcano Crater: two rings dynamically scaling with spread
+      const s2 = spread * 0.8;
+      const rRidge = Math.sqrt(s2);
+      [rRidge * 0.55, rRidge * 1.4].forEach(rEst => {
+        if (rEst > 0.1 && rEst < 3.0) {
+          const pts = [];
+          for (let a = 0; a <= 64; a++) {
+            const theta = (a / 64) * 2 * Math.PI;
+            const x = rEst * Math.cos(theta);
+            const y = rEst * Math.sin(theta);
+            pts.push(new THREE.Vector3(x, y, evalScalar(x, y) + 0.035));
+          }
+          const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+          contourGroup.add(new THREE.Line(lineGeo, ringMat));
         }
-        const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
-        contourGroup.add(new THREE.Line(lineGeo, ringMat));
       });
     }
   }
 }
 
 /**
- * Builds surface-tangent gradient arrows lying on the 3D topographical hill
+ * Builds surface-tangent gradient arrows lying on the 3D topographical hill.
+ * Guaranteed never to disappear inside the hill mesh.
  */
 function buildGradientArrows() {
   const arrowSpacing = 0.65;
+
   for (let x = -2.6; x <= 2.6; x += arrowSpacing) {
     for (let y = -2.6; y <= 2.6; y += arrowSpacing) {
       const z = evalScalar(x, y);
       const { gx, gy, mag } = evalGrad(x, y);
 
       if (mag > 0.08) {
-        // True surface-tangent vector pointing uphill:
-        // (gx, gy, gx^2 + gy^2) is orthogonal to surface normal (-gx, -gy, 1)
-        const tangentDir = new THREE.Vector3(gx, gy, mag * 0.65).normalize();
-        const len = Math.min(0.48, Math.max(0.18, mag * 0.32));
-        const origin = new THREE.Vector3(x, y, z + 0.035);
+        // Horizontal tangent direction
+        const ux = gx / mag;
+        const uy = gy / mag;
 
-        const arr = new THREE.ArrowHelper(tangentDir, origin, len, 0xf59e0b, len * 0.35, len * 0.18);
+        // True surface-tangent direction in 3D:
+        // Along horizontal unit direction (ux, uy), height changes with rate dz/ds = mag.
+        // Unit tangent vector = (ux, uy, mag) / sqrt(1 + mag^2)
+        const tangentDir = new THREE.Vector3(ux, uy, mag).normalize();
+
+        // Local surface normal vector: (-gx, -gy, 1) normalized
+        const normal = new THREE.Vector3(-gx, -gy, 1).normalize();
+
+        // Add a gentle normal bias (+0.12 * normal) so the arrow follows the curvature
+        // of convex/concave slopes and never cuts beneath the mesh
+        const arrowDir = tangentDir.clone().addScaledVector(normal, 0.12).normalize();
+
+        const len = Math.min(0.48, Math.max(0.18, mag * 0.32));
+        // Elevate origin comfortably above surface (+0.05 m)
+        const origin = new THREE.Vector3(x, y, z + 0.05);
+
+        const arr = new THREE.ArrowHelper(arrowDir, origin, len, 0xf59e0b, len * 0.35, len * 0.18);
+
+        // Ensure arrows always render cleanly in front of hill mesh
         arr.line.material.linewidth = 2;
         arr.line.material.transparent = true;
-        arr.line.material.opacity = 0.8;
+        arr.line.material.opacity = 0.95;
+        arr.line.material.depthTest = false;
         arr.line.material.depthWrite = false;
+
+        arr.cone.material.transparent = true;
+        arr.cone.material.opacity = 0.95;
+        arr.cone.material.depthTest = false;
+        arr.cone.material.depthWrite = false;
+
+        arr.renderOrder = 8;
         vectorsGroup.add(arr);
       }
     }
@@ -280,6 +320,8 @@ function buildAscentStreamlines() {
   }
 
   const startRadius = 2.65;
+  const spread = Math.max(0.5, hillSpread);
+  const rRidge = Math.sqrt(spread * 0.8);
 
   seedAngles.forEach((angle) => {
     let curX = startRadius * Math.cos(angle);
@@ -290,7 +332,7 @@ function buildAscentStreamlines() {
 
     for (let s = 0; s < 70; s++) {
       const { gx, gy, mag } = evalGrad(curX, curY);
-      if (mag < 0.025) break;
+      if (mag < 0.02) break;
 
       const step = 0.07;
       curX += (gx / mag) * step;
@@ -301,8 +343,8 @@ function buildAscentStreamlines() {
 
       // Stop near summits
       if (currentHillProfile === 0 && Math.hypot(curX, curY) < 0.12) break;
-      if (currentHillProfile === 1 && (Math.hypot(curX - 1.4, curY) < 0.12 || Math.hypot(curX + 1.4, curY) < 0.12)) break;
-      if (currentHillProfile === 2 && Math.abs(Math.hypot(curX, curY) - 1.4) < 0.06) break;
+      if (currentHillProfile === 1 && (Math.hypot(curX - 1.4, curY) < 0.14 || Math.hypot(curX + 1.4, curY) < 0.14)) break;
+      if (currentHillProfile === 2 && Math.abs(Math.hypot(curX, curY) - rRidge) < 0.08) break;
     }
 
     if (pts.length > 5) {
@@ -319,26 +361,26 @@ function buildAscentStreamlines() {
     }
   });
 
-  // For Volcano crater: add 6 interior radial rays climbing outwards to the ridge
+  // For Volcano crater: add interior radial rays climbing outwards to the ridge
   if (currentHillProfile === 2) {
     for (let i = 0; i < 8; i++) {
       const angle = (i / 8) * 2 * Math.PI;
-      let curX = 0.3 * Math.cos(angle);
-      let curY = 0.3 * Math.sin(angle);
+      let curX = (rRidge * 0.25) * Math.cos(angle);
+      let curY = (rRidge * 0.25) * Math.sin(angle);
 
       const pts = [];
       pts.push(new THREE.Vector3(curX, curY, evalScalar(curX, curY) + 0.035));
 
-      for (let s = 0; s < 40; s++) {
+      for (let s = 0; s < 45; s++) {
         const { gx, gy, mag } = evalGrad(curX, curY);
-        if (mag < 0.025) break;
+        if (mag < 0.02) break;
 
         const step = 0.06;
         curX += (gx / mag) * step;
         curY += (gy / mag) * step;
 
         pts.push(new THREE.Vector3(curX, curY, evalScalar(curX, curY) + 0.035));
-        if (Math.abs(Math.hypot(curX, curY) - 1.4) < 0.06) break;
+        if (Math.abs(Math.hypot(curX, curY) - rRidge) < 0.08) break;
       }
 
       if (pts.length > 4) {
@@ -396,7 +438,7 @@ export function update(time, coordSystem, params) {
   const nextAmp = params.hillAmplitude !== undefined ? params.hillAmplitude : hillAmplitude;
   const nextSpread = params.hillSpread !== undefined ? params.hillSpread : hillSpread;
 
-  if (nextProfile !== currentHillProfile || Math.abs(nextAmp - hillAmplitude) > 0.05 || Math.abs(nextSpread - hillSpread) > 0.05) {
+  if (nextProfile !== currentHillProfile || Math.abs(nextAmp - hillAmplitude) > 0.02 || Math.abs(nextSpread - hillSpread) > 0.02) {
     currentHillProfile = nextProfile;
     hillAmplitude = nextAmp;
     hillSpread = nextSpread;
@@ -449,22 +491,22 @@ export function update(time, coordSystem, params) {
  */
 export function getFormulaData(coordSystem, params) {
   const profileNames = [
-    'Single Gaussian Potential Peak',
-    'Twin Peaks (Dipole Potential)',
-    'Volcano Crater / Ring Ridge'
+    'Single Peak',
+    'Twin Peaks',
+    'Ring Ridge'
   ];
   const profileName = profileNames[currentHillProfile] || profileNames[0];
   const peakAlt = getPeakAltitude();
 
   const formulaLatex = `\\begin{aligned}
-\\text{\\small Cartesian: } & \\nabla V = \\frac{\\partial V}{\\partial x}\\hat{a}_x + \\frac{\\partial V}{\\partial y}\\hat{a}_y + \\frac{\\partial V}{\\partial z}\\hat{a}_z \\\\[6pt]
-\\text{\\small Cylindrical: } & \\nabla V = \\frac{\\partial V}{\\partial \\rho}\\hat{a}_\\rho + \\frac{1}{\\rho}\\frac{\\partial V}{\\partial \\phi}\\hat{a}_\\phi + \\frac{\\partial V}{\\partial z}\\hat{a}_z \\\\[6pt]
-\\text{\\small Spherical: } & \\nabla V = \\frac{\\partial V}{\\partial r}\\hat{a}_r + \\frac{1}{r}\\frac{\\partial V}{\\partial \\theta}\\hat{a}_\\theta + \\frac{1}{r\\sin\\theta}\\frac{\\partial V}{\\partial \\phi}\\hat{a}_\\phi
+\\nabla V = \\frac{\\partial V}{\\partial x}\\hat{a}_x + \\frac{\\partial V}{\\partial y}\\hat{a}_y + \\frac{\\partial V}{\\partial z}\\hat{a}_z \\\\[8pt]
+\\nabla V = \\frac{\\partial V}{\\partial \\rho}\\hat{a}_\\rho + \\frac{1}{\\rho}\\frac{\\partial V}{\\partial \\phi}\\hat{a}_\\phi + \\frac{\\partial V}{\\partial z}\\hat{a}_z \\\\[8pt]
+\\nabla V = \\frac{\\partial V}{\\partial r}\\hat{a}_r + \\frac{1}{r}\\frac{\\partial V}{\\partial \\theta}\\hat{a}_\\theta + \\frac{1}{r\\sin\\theta}\\frac{\\partial V}{\\partial \\phi}\\hat{a}_\\phi
 \\end{aligned}`;
 
   return {
     topicTag: 'Gradient',
-    topicTitle: 'The Gradient (∇V): Steepest Ascent on a Scalar Potential Hill',
+    topicTitle: 'The Gradient (∇V)',
     modeBtnText: 'Switch Hill Profile: ' + profileNames[(currentHillProfile + 1) % 3] + ' →',
     modeDesc: 'The gradient ∇V points in the direction of steepest ascent and is perpendicular to equipotential contours.',
     formulaLatex,

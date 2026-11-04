@@ -386,7 +386,7 @@ export function getFormulaData(coordSystem, params) {
     case COORD_SYSTEMS.CARTESIAN: {
       formulaLatex = `\\begin{aligned}
 d\\vec{l} &= dx\\,\\hat{a}_x + dy\\,\\hat{a}_y + dz\\,\\hat{a}_z \\\\[4pt]
-d\\vec{S} &= dy\\,dz\\,\\hat{a}_x + dx\\,dz\\,\\hat{a}_y + dx\\,dy\\,\\hat{a}_z \\\\[4pt]
+d\\vec{s} &= dy\\,dz\\,\\hat{a}_x + dx\\,dz\\,\\hat{a}_y + dx\\,dy\\,\\hat{a}_z \\\\[4pt]
 dv &= dx\\,dy\\,dz
 \\end{aligned}`;
 
@@ -421,7 +421,7 @@ dv &= dx\\,dy\\,dz
 
       formulaLatex = `\\begin{aligned}
 d\\vec{l} &= d\\rho\\,\\hat{a}_\\rho + \\rho\\,d\\phi\\,\\hat{a}_\\phi + dz\\,\\hat{a}_z \\\\[4pt]
-d\\vec{S} &= \\rho\\,d\\phi\\,dz\\,\\hat{a}_\\rho + d\\rho\\,dz\\,\\hat{a}_\\phi + \\rho\\,d\\rho\\,d\\phi\\,\\hat{a}_z \\\\[4pt]
+d\\vec{s} &= \\rho\\,d\\phi\\,dz\\,\\hat{a}_\\rho + d\\rho\\,dz\\,\\hat{a}_\\phi + \\rho\\,d\\rho\\,d\\phi\\,\\hat{a}_z \\\\[4pt]
 dv &= \\rho\\,d\\rho\\,d\\phi\\,dz
 \\end{aligned}`;
 
@@ -457,7 +457,7 @@ dv &= \\rho\\,d\\rho\\,d\\phi\\,dz
 
       formulaLatex = `\\begin{aligned}
 d\\vec{l} &= dr\\,\\hat{a}_r + r\\,d\\theta\\,\\hat{a}_\\theta + r\\sin\\theta\\,d\\phi\\,\\hat{a}_\\phi \\\\[4pt]
-d\\vec{S} &= r^2\\sin\\theta\\,d\\theta\\,d\\phi\\,\\hat{a}_r + r\\sin\\theta\\,dr\\,d\\phi\\,\\hat{a}_\\theta + r\\,dr\\,d\\theta\\,\\hat{a}_\\phi \\\\[4pt]
+d\\vec{s} &= r^2\\sin\\theta\\,d\\theta\\,d\\phi\\,\\hat{a}_r + r\\sin\\theta\\,dr\\,d\\phi\\,\\hat{a}_\\theta + r\\,dr\\,d\\theta\\,\\hat{a}_\\phi \\\\[4pt]
 dv &= r^2\\sin\\theta\\,dr\\,d\\theta\\,d\\phi
 \\end{aligned}`;
 

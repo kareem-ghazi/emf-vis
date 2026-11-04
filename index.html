@@ -35,13 +35,13 @@
     <!-- Left Sidebar Controls -->
     <aside id="sidebar">
       <header class="app-header">
-        <div class="logo-badge">EMF 3D</div>
-        <h1>Electromagnetic Fields</h1>
-        <p class="subtitle">Interactive Vector Calculus & Field Visualizer</p>
+        <div class="logo-badge">EMF.VIS</div>
+        <h1>Electromagnetic Fields Visualizer</h1>
+        <p class="subtitle">An interactive coordinate system & vector calculus visualizer.</p>
       </header>
 
       <section class="control-section">
-        <label for="topic-select" class="section-label">Field Concept</label>
+        <label for="topic-select" class="section-label">Concept</label>
         <div class="select-wrapper">
           <select id="topic-select">
             <option value="coords">Coordinate Systems</option>
@@ -97,9 +97,9 @@
         <label class="section-label">Hill Potential Profile</label>
         <div class="select-wrapper">
           <select id="gradient-profile-select">
-            <option value="0">Single Gaussian Peak (Summit at Origin)</option>
-            <option value="1">Twin Peaks (Dipole Potential Hills)</option>
-            <option value="2">Volcano Crater / Ring Ridge</option>
+            <option value="0">Single Peak</option>
+            <option value="1">Twin Peaks</option>
+            <option value="2">Ring Ridge</option>
           </select>
         </div>
 
@@ -113,7 +113,7 @@
 
         <div class="slider-group">
           <div class="slider-label-row">
-            <span class="coord-symbol">Hill Spread / Width (σ)</span>
+            <span class="coord-symbol">Hill Spread (σ)</span>
             <span class="coord-value" id="val-grad-spread">3.0</span>
           </div>
           <input type="range" id="slider-grad-spread" min="1.0" max="5.0" step="0.1" value="3.0">

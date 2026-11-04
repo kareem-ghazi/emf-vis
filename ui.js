@@ -442,8 +442,8 @@ export class UIController {
         this.dom.labelU3.textContent = 'z';
 
         s1.min = '0.2'; s1.max = '4.0'; s1.step = '0.05';
-        s2.min = '0';   s2.max = '360'; s2.step = '1';
-        s3.min = '-4';  s3.max = '4';   s3.step = '0.05';
+        s2.min = '0'; s2.max = '360'; s2.step = '1';
+        s3.min = '-4'; s3.max = '4'; s3.step = '0.05';
 
         if (optionalCartesianPoint) {
           const rho = Math.max(0.2, Math.min(4.0, Math.sqrt(optionalCartesianPoint.x ** 2 + optionalCartesianPoint.y ** 2)));
@@ -460,8 +460,8 @@ export class UIController {
         this.dom.labelU3.textContent = 'φ';
 
         s1.min = '0.2'; s1.max = '4.5'; s1.step = '0.05';
-        s2.min = '5';   s2.max = '175'; s2.step = '1';
-        s3.min = '0';   s3.max = '360'; s3.step = '1';
+        s2.min = '5'; s2.max = '175'; s2.step = '1';
+        s3.min = '0'; s3.max = '360'; s3.step = '1';
 
         if (optionalCartesianPoint) {
           const r = Math.max(0.2, Math.min(4.5, Math.sqrt(
@@ -667,9 +667,9 @@ export class UIController {
       <div class="calc-result-box" style="margin-bottom: 6px;">
         <div class="calc-result-title">Source Coordinate System</div>
         <div class="segmented-control" id="calc-conv-src-sys">
-          <button type="button" class="segment-btn ${this.calcState.convFrom === 'cartesian' ? 'active' : ''}" data-sys="cartesian">Cartesian (x,y,z)</button>
-          <button type="button" class="segment-btn ${this.calcState.convFrom === 'cylindrical' ? 'active' : ''}" data-sys="cylindrical">Cylindrical (ρ,φ,z)</button>
-          <button type="button" class="segment-btn ${this.calcState.convFrom === 'spherical' ? 'active' : ''}" data-sys="spherical">Spherical (r,θ,φ)</button>
+          <button type="button" class="segment-btn ${this.calcState.convFrom === 'cartesian' ? 'active' : ''}" data-sys="cartesian">Cartesian <br>(x, y, z)</button>
+          <button type="button" class="segment-btn ${this.calcState.convFrom === 'cylindrical' ? 'active' : ''}" data-sys="cylindrical">Cylindrical <br>(ρ, φ, z)</button>
+          <button type="button" class="segment-btn ${this.calcState.convFrom === 'spherical' ? 'active' : ''}" data-sys="spherical">Spherical <br>(r, θ, φ)</button>
         </div>
       </div>
 
@@ -692,7 +692,7 @@ export class UIController {
         <div class="calc-result-title">Converted Coordinate Representations</div>
         <div class="calc-result-item">
           <span class="lbl">Cartesian (x, y, z):</span>
-          <span class="val" id="calc-conv-res-cart">(${res.cartesian.x.toFixed(2)}, ${res.cartesian.y.toFixed(2)}, ${res.cartesian.z.toFixed(2)}) m</span>
+          <span class="val" id="calc-conv-res-cart">(${res.cartesian.x.toFixed(2)} m, ${res.cartesian.y.toFixed(2)} m, ${res.cartesian.z.toFixed(2)} m)</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Cylindrical (ρ, φ, z):</span>
@@ -894,36 +894,60 @@ export class UIController {
     const formatFormulaToLatex = (raw) => {
       if (!raw || !raw.trim()) return 'V(x, y, z) = 0';
       let s = raw.trim();
-      s = s.replace(/\bexp\b/g, '\\exp');
-      s = s.replace(/\bsin\b/g, '\\sin');
-      s = s.replace(/\bcos\b/g, '\\cos');
-      s = s.replace(/\btan\b/g, '\\tan');
-      s = s.replace(/\bsqrt\b/g, '\\sqrt');
-      s = s.replace(/\b(log|ln)\b/g, '\\ln');
+
+      // Convert exp(...) to e^{...}
+      s = s.replace(/\bexp\s*\(([^)]+)\)/gi, 'e^{$1}');
+      s = s.replace(/\bsin\b/gi, '\\sin');
+      s = s.replace(/\bcos\b/gi, '\\cos');
+      s = s.replace(/\btan\b/gi, '\\tan');
+      s = s.replace(/\bsqrt\b/gi, '\\sqrt');
+      s = s.replace(/\b(log|ln)\b/gi, '\\ln');
       s = s.replace(/\^([a-zA-Z0-9]+)/g, '^{$1}');
       s = s.replace(/\^\(([^)]+)\)/g, '^{$1}');
       s = s.replace(/\*/g, ' \\cdot ');
+
       return `V(x, y, z) = ${s}`;
     };
 
     // Helper: Evaluates scalar function safely from user expression
     const evaluateCustomScalar = (raw, x, y, z) => {
-      let s = (raw || '0').trim();
+      if (!raw || !raw.trim()) return 0;
+      let s = raw.trim();
+
+      // 1. Replace powers ^ with **
       s = s.replace(/\^/g, '**');
-      s = s.replace(/(\d)\s*([a-zA-Z(])/g, '$1*$2');
-      s = s.replace(/([a-zA-Z0-9_])\s*(\()/g, (m, p1) => {
-        if (/^(sin|cos|tan|exp|log|ln|sqrt|abs)$/.test(p1)) return `${p1}(`;
-        return `${p1}*(`;
+
+      // 2. Handle e^(...) or e^x -> exp(...)
+      s = s.replace(/\be\s*\*\*\s*\(([^)]+)\)/gi, 'exp($1)');
+      s = s.replace(/\be\s*\*\*\s*([a-zA-Z0-9_]+)/gi, 'exp($1)');
+
+      // 3. Handle numbers before variables or opening parens (e.g. 2x -> 2*x, 3(x) -> 3*(x))
+      s = s.replace(/(\d)\s*([a-zA-Z_]\w*|\()/g, (m, p1, p2) => `${p1}*${p2}`);
+
+      // 4. Handle closing paren followed by variable, number, or opening paren: (x+1)(y+1) -> (x+1)*(y+1)
+      s = s.replace(/\)\s*(\(|\d|[a-zA-Z_])/g, ')*$1');
+
+      // 5. Handle variables x, y, z before opening paren, but preserve function names
+      s = s.replace(/\b([a-zA-Z_]\w*)\s*\(/g, (match, name) => {
+        const fnNames = ['sin', 'cos', 'tan', 'exp', 'log', 'ln', 'sqrt', 'abs'];
+        if (fnNames.includes(name.toLowerCase())) {
+          return `${name.toLowerCase()}(`;
+        }
+        return `${name}*(`;
       });
+
+      // 6. Handle adjacent variables like x y -> x*y
+      s = s.replace(/\b([xyz])\s+([xyz])\b/gi, '$1*$2');
 
       try {
         const fn = new Function('x', 'y', 'z', `
           const { sin, cos, tan, exp, log, sqrt, abs, PI } = Math;
           const ln = log;
+          const e = Math.E;
           try {
-            const val = (${s});
-            return (typeof val === 'number' && !isNaN(val)) ? val : 0;
-          } catch(e) {
+            const val = Number(${s});
+            return (typeof val === 'number' && !isNaN(val) && isFinite(val)) ? val : 0;
+          } catch (e) {
             return 0;
           }
         `);
@@ -947,7 +971,7 @@ export class UIController {
 
     container.innerHTML = `
       <div class="calc-result-box" style="margin-bottom: 6px;">
-        <div class="calc-result-title">Scalar Function V(x, y, z)</div>
+        <div class="calc-result-title">Scalar Function</div>
         <input type="text" class="calc-input-field" id="calc-grad-expr" value="${expr}" placeholder="e.g. 3.5 * exp(-(x^2 + y^2)/3) or x^2 + y^2 + z" style="font-size: 12px; font-weight: 600; color: #38bdf8; margin-bottom: 4px;">
         <div id="calc-grad-latex-display" class="math-display" style="padding: 6px 10px; font-size: 13px; text-align: center; min-height: 32px; background: rgba(10, 14, 22, 0.75);"></div>
       </div>
