@@ -3,7 +3,7 @@
  * Visualizes the gradient as the path of steepest ascent on a 3D topographical scalar hill.
  * Cartesian by default, without any probe ball.
  * Displays equipotential contour rings, 3D surface tangent gradient vectors,
- * and animated ascent streamlines climbing to the potential summit.
+ * and smooth glowing ascent streamlines climbing to the potential summit without flashing.
  */
 
 import * as THREE from 'three';
@@ -15,42 +15,74 @@ let vectorsGroup = null;
 let pathsGroup = null;
 let pulseTracers = null;
 let pulsePositions = null;
-let pulseData = [];
 
 let currentHillProfile = 0; // 0: Single Peak, 1: Twin Peaks, 2: Volcano Crater
 let hillAmplitude = 3.5;
 let hillSpread = 3.0;
 
 const NUM_STREAMLINES = 16;
-const NUM_PULSES = 64;
+let streamlines = []; // Array of arrays of Vector3 points
+let particles = [];   // Array of particle tracking objects
+
+// Cache circular glow texture for pulse particles
+let glowTexture = null;
+
+function getGlowTexture() {
+  if (glowTexture) return glowTexture;
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 30);
+  grad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+  grad.addColorStop(0.35, 'rgba(254, 240, 138, 0.85)');
+  grad.addColorStop(0.7, 'rgba(234, 179, 8, 0.25)');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 64, 64);
+  glowTexture = new THREE.CanvasTexture(canvas);
+  return glowTexture;
+}
 
 /**
  * Evaluates the scalar field height V(x, y) based on active profile
  */
-function evalScalar(x, y) {
+export function evalScalar(x, y) {
   const r2 = x * x + y * y;
   if (currentHillProfile === 0) {
     // Single Gaussian Peak
     return hillAmplitude * Math.exp(-r2 / Math.max(0.5, hillSpread));
   } else if (currentHillProfile === 1) {
-    // Twin Peaks
-    const r1 = (x - 1.5) * (x - 1.5) + y * y;
-    const r2 = (x + 1.5) * (x + 1.5) + y * y;
-    return (hillAmplitude * 0.9) * (Math.exp(-r1 / 2.2) + Math.exp(-r2 / 2.2));
+    // Twin Peaks (Dipole potential)
+    const r1 = (x - 1.4) * (x - 1.4) + y * y;
+    const r2 = (x + 1.4) * (x + 1.4) + y * y;
+    return (hillAmplitude * 0.95) * (Math.exp(-r1 / 2.0) + Math.exp(-r2 / 2.0));
   } else {
-    // Volcano Crater / Ring Peak
-    const r = Math.sqrt(r2);
-    return hillAmplitude * (r2 / 2.0) * Math.exp(-r2 / 3.0);
+    // Volcano Crater / Ring Ridge (peak at r ~ 1.4)
+    return (hillAmplitude * 1.35) * (r2 / 2.0) * Math.exp(-r2 / 2.5);
   }
 }
 
 /**
  * Evaluates numerical gradient (gx, gy) = (dV/dx, dV/dy)
  */
-function evalGrad(x, y, eps = 1e-4) {
+export function evalGrad(x, y, eps = 1e-4) {
   const gx = (evalScalar(x + eps, y) - evalScalar(x - eps, y)) / (2 * eps);
   const gy = (evalScalar(x, y + eps) - evalScalar(x, y - eps)) / (2 * eps);
   return { gx, gy, mag: Math.sqrt(gx * gx + gy * gy) };
+}
+
+/**
+ * Evaluates peak altitude for active profile
+ */
+function getPeakAltitude() {
+  if (currentHillProfile === 0) {
+    return evalScalar(0, 0);
+  } else if (currentHillProfile === 1) {
+    return evalScalar(1.4, 0);
+  } else {
+    return evalScalar(Math.sqrt(2.5), 0);
+  }
 }
 
 /**
@@ -89,29 +121,28 @@ function buildScene(params) {
   gradientGroup.add(pathsGroup);
 
   // 1. Topographical Hill Mesh in X-Y (elevation along Z)
-  const size = 6.0;
-  const segs = 64;
+  const size = 6.2;
+  const segs = 72;
   const geo = new THREE.PlaneGeometry(size, size, segs, segs);
 
   const pos = geo.attributes.position;
   const colors = [];
   const col = new THREE.Color();
 
-  let maxZ = 0.001;
+  const maxZ = Math.max(0.01, getPeakAltitude());
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
     const y = pos.getY(i);
     const zVal = evalScalar(x, y);
     pos.setZ(i, zVal);
-    if (zVal > maxZ) maxZ = zVal;
   }
 
   // Colormap based on elevation
   for (let i = 0; i < pos.count; i++) {
     const zVal = pos.getZ(i);
     const t = Math.min(1, Math.max(0, zVal / maxZ));
-    // Blue/Teal base -> Vibrant Green mid -> Bright Gold summit
-    col.setHSL(0.58 * (1.0 - t), 0.9, 0.45 + 0.25 * t);
+    // Blue/Teal base -> Vibrant Emerald mid -> Warm Gold summit
+    col.setHSL(0.56 * (1.0 - t), 0.88, 0.42 + 0.28 * t);
     colors.push(col.r, col.g, col.b);
   }
 
@@ -120,108 +151,241 @@ function buildScene(params) {
 
   const mat = new THREE.MeshStandardMaterial({
     vertexColors: true,
-    roughness: 0.35,
-    metalness: 0.1,
-    side: THREE.DoubleSide
+    roughness: 0.38,
+    metalness: 0.08,
+    side: THREE.DoubleSide,
+    polygonOffset: true,
+    polygonOffsetFactor: 1.0,
+    polygonOffsetUnits: 1.0
   });
   hillMesh = new THREE.Mesh(geo, mat);
   gradientGroup.add(hillMesh);
 
-  // Wireframe subtle overlay
-  const wireMat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.08 });
+  // Subtle Wireframe overlay
+  const wireMat = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.07,
+    depthWrite: false
+  });
   gradientGroup.add(new THREE.Mesh(geo, wireMat));
 
   // 2. Equipotential Contour Rings (V = const)
+  buildContourRings(maxZ);
+
+  // 3. 3D Surface Tangent Gradient Vector Arrows
+  buildGradientArrows();
+
+  // 4. Stable Steepest Ascent Streamlines & Particles
+  buildAscentStreamlines();
+}
+
+/**
+ * Builds equipotential contour curves V(x, y) = const
+ */
+function buildContourRings(maxZ) {
   const numContours = 6;
+  const ringMat = new THREE.LineBasicMaterial({
+    color: 0x38bdf8,
+    transparent: true,
+    opacity: 0.65,
+    depthWrite: false
+  });
+
   for (let c = 1; c <= numContours; c++) {
     const targetV = (c / (numContours + 1)) * maxZ;
-    // Sample circle or contour line at targetV
-    const ringRadius = Math.sqrt(Math.max(0, -hillSpread * Math.log(Math.max(1e-4, targetV / hillAmplitude))));
-    if (ringRadius > 0.05 && ringRadius < 3.2 && currentHillProfile === 0) {
-      const curve = new THREE.EllipseCurve(0, 0, ringRadius, ringRadius, 0, 2 * Math.PI, false, 0);
-      const pts = curve.getPoints(64).map(p => new THREE.Vector3(p.x, p.y, targetV + 0.02));
-      const ringGeo = new THREE.BufferGeometry().setFromPoints(pts);
-      const ringLine = new THREE.LineLoop(ringGeo, new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.6 }));
-      contourGroup.add(ringLine);
+
+    if (currentHillProfile === 0) {
+      // Concentric circles for Single Peak
+      const r = Math.sqrt(Math.max(0, -hillSpread * Math.log(Math.max(1e-4, targetV / hillAmplitude))));
+      if (r > 0.08 && r < 3.0) {
+        const pts = [];
+        for (let a = 0; a <= 64; a++) {
+          const theta = (a / 64) * 2 * Math.PI;
+          pts.push(new THREE.Vector3(r * Math.cos(theta), r * Math.sin(theta), targetV + 0.025));
+        }
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+        contourGroup.add(new THREE.Line(lineGeo, ringMat));
+      }
+    } else if (currentHillProfile === 1) {
+      // Loops around Twin Peaks
+      [-1.4, 1.4].forEach(cx => {
+        const rApprox = Math.sqrt(Math.max(0, -2.0 * Math.log(Math.max(1e-4, targetV / (hillAmplitude * 0.95)))));
+        if (rApprox > 0.05 && rApprox < 1.3) {
+          const pts = [];
+          for (let a = 0; a <= 48; a++) {
+            const theta = (a / 48) * 2 * Math.PI;
+            pts.push(new THREE.Vector3(cx + rApprox * Math.cos(theta), rApprox * Math.sin(theta), targetV + 0.025));
+          }
+          const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+          contourGroup.add(new THREE.Line(lineGeo, ringMat));
+        }
+      });
+    } else {
+      // Volcano Crater: two rings (inner crater + outer slope)
+      [0.75, 1.95].forEach(rEst => {
+        const pts = [];
+        for (let a = 0; a <= 64; a++) {
+          const theta = (a / 64) * 2 * Math.PI;
+          const x = rEst * Math.cos(theta);
+          const y = rEst * Math.sin(theta);
+          pts.push(new THREE.Vector3(x, y, evalScalar(x, y) + 0.025));
+        }
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+        contourGroup.add(new THREE.Line(lineGeo, ringMat));
+      });
     }
   }
+}
 
-  // 3. Dense 3D Surface Tangent Gradient Arrows
+/**
+ * Builds surface-tangent gradient arrows lying on the 3D topographical hill
+ */
+function buildGradientArrows() {
   const arrowSpacing = 0.65;
   for (let x = -2.6; x <= 2.6; x += arrowSpacing) {
     for (let y = -2.6; y <= 2.6; y += arrowSpacing) {
       const z = evalScalar(x, y);
       const { gx, gy, mag } = evalGrad(x, y);
+
       if (mag > 0.08) {
-        // Gradient points in direction of steepest ascent:
-        // Horizontal: (gx, gy). Along surface: elevation increases by mag.
-        const dir = new THREE.Vector3(gx, gy, mag).normalize();
-        const len = Math.min(0.5, Math.max(0.18, mag * 0.35));
-        const arr = new THREE.ArrowHelper(dir, new THREE.Vector3(x, y, z + 0.03), len, 0xf59e0b, len * 0.35, len * 0.18);
+        // True surface-tangent vector pointing uphill:
+        // (gx, gy, gx^2 + gy^2) is orthogonal to surface normal (-gx, -gy, 1)
+        const tangentDir = new THREE.Vector3(gx, gy, mag * 0.65).normalize();
+        const len = Math.min(0.48, Math.max(0.18, mag * 0.32));
+        const origin = new THREE.Vector3(x, y, z + 0.035);
+
+        const arr = new THREE.ArrowHelper(tangentDir, origin, len, 0xf59e0b, len * 0.35, len * 0.18);
         arr.line.material.linewidth = 2;
         arr.line.material.transparent = true;
-        arr.line.material.opacity = 0.75;
+        arr.line.material.opacity = 0.8;
+        arr.line.material.depthWrite = false;
         vectorsGroup.add(arr);
       }
     }
   }
+}
 
-  // 4. Steepest Ascent Streamlines from base to summit
-  pulseData = [];
-  const startRadius = 2.7;
+/**
+ * Builds smooth, rock-solid steepest ascent streamlines and particle tracers
+ */
+function buildAscentStreamlines() {
+  streamlines = [];
+  particles = [];
+
+  const seedAngles = [];
   for (let i = 0; i < NUM_STREAMLINES; i++) {
-    const angle = (i / NUM_STREAMLINES) * 2 * Math.PI;
+    seedAngles.push((i / NUM_STREAMLINES) * 2 * Math.PI);
+  }
+
+  const startRadius = 2.65;
+
+  seedAngles.forEach((angle) => {
     let curX = startRadius * Math.cos(angle);
     let curY = startRadius * Math.sin(angle);
 
     const pts = [];
-    pts.push(new THREE.Vector3(curX, curY, evalScalar(curX, curY) + 0.03));
+    pts.push(new THREE.Vector3(curX, curY, evalScalar(curX, curY) + 0.035));
 
-    for (let s = 0; s < 60; s++) {
+    for (let s = 0; s < 70; s++) {
       const { gx, gy, mag } = evalGrad(curX, curY);
-      if (mag < 0.04) break;
-      const step = 0.08;
+      if (mag < 0.025) break;
+
+      const step = 0.07;
       curX += (gx / mag) * step;
       curY += (gy / mag) * step;
-      pts.push(new THREE.Vector3(curX, curY, evalScalar(curX, curY) + 0.03));
-      if (Math.sqrt(curX * curX + curY * curY) < 0.08) break;
+
+      const curZ = evalScalar(curX, curY);
+      pts.push(new THREE.Vector3(curX, curY, curZ + 0.035));
+
+      // Stop near summits
+      if (currentHillProfile === 0 && Math.hypot(curX, curY) < 0.12) break;
+      if (currentHillProfile === 1 && (Math.hypot(curX - 1.4, curY) < 0.12 || Math.hypot(curX + 1.4, curY) < 0.12)) break;
+      if (currentHillProfile === 2 && Math.abs(Math.hypot(curX, curY) - 1.4) < 0.06) break;
     }
 
-    if (pts.length > 3) {
-      const pathGeo = new THREE.BufferGeometry().setFromPoints(pts);
-      const pathLine = new THREE.Line(pathGeo, new THREE.LineBasicMaterial({ color: 0xffeb3b, transparent: true, opacity: 0.7, linewidth: 2 }));
-      pathsGroup.add(pathLine);
-      pulseData.push({ pts, step: Math.random() * (pts.length - 1) });
+    if (pts.length > 5) {
+      const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+      const lineMat = new THREE.LineBasicMaterial({
+        color: 0xfacc15,
+        transparent: true,
+        opacity: 0.75,
+        linewidth: 2,
+        depthWrite: false
+      });
+      pathsGroup.add(new THREE.Line(lineGeo, lineMat));
+      streamlines.push(pts);
     }
-  }
-
-  // 5. Animated glowing pulse particles climbing along streamlines
-  initPulses();
-}
-
-function initPulses() {
-  if (pulseData.length === 0) return;
-  pulsePositions = new Float32Array(NUM_PULSES * 3);
-
-  for (let i = 0; i < NUM_PULSES; i++) {
-    const stream = pulseData[i % pulseData.length];
-    const pt = stream.pts[0];
-    pulsePositions[i * 3] = pt.x;
-    pulsePositions[i * 3 + 1] = pt.y;
-    pulsePositions[i * 3 + 2] = pt.z;
-  }
-
-  const pGeo = new THREE.BufferGeometry();
-  pGeo.setAttribute('position', new THREE.BufferAttribute(pulsePositions, 3));
-  const pMat = new THREE.PointsMaterial({
-    color: 0xffffff,
-    size: 0.12,
-    transparent: true,
-    opacity: 0.95,
-    blending: THREE.AdditiveBlending
   });
-  pulseTracers = new THREE.Points(pGeo, pMat);
-  pathsGroup.add(pulseTracers);
+
+  // For Volcano crater: add 6 interior radial rays climbing outwards to the ridge
+  if (currentHillProfile === 2) {
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * 2 * Math.PI;
+      let curX = 0.3 * Math.cos(angle);
+      let curY = 0.3 * Math.sin(angle);
+
+      const pts = [];
+      pts.push(new THREE.Vector3(curX, curY, evalScalar(curX, curY) + 0.035));
+
+      for (let s = 0; s < 40; s++) {
+        const { gx, gy, mag } = evalGrad(curX, curY);
+        if (mag < 0.025) break;
+
+        const step = 0.06;
+        curX += (gx / mag) * step;
+        curY += (gy / mag) * step;
+
+        pts.push(new THREE.Vector3(curX, curY, evalScalar(curX, curY) + 0.035));
+        if (Math.abs(Math.hypot(curX, curY) - 1.4) < 0.06) break;
+      }
+
+      if (pts.length > 4) {
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+        const lineMat = new THREE.LineBasicMaterial({
+          color: 0xfacc15,
+          transparent: true,
+          opacity: 0.75,
+          depthWrite: false
+        });
+        pathsGroup.add(new THREE.Line(lineGeo, lineMat));
+        streamlines.push(pts);
+      }
+    }
+  }
+
+  // Setup smooth, continuous particle tracers (2 per streamline)
+  if (streamlines.length > 0) {
+    const totalParticles = streamlines.length * 2;
+    pulsePositions = new Float32Array(totalParticles * 3);
+
+    particles = [];
+    for (let sIdx = 0; sIdx < streamlines.length; sIdx++) {
+      for (let pIdx = 0; pIdx < 2; pIdx++) {
+        particles.push({
+          streamIdx: sIdx,
+          offset: pIdx * 0.5 + (sIdx * 0.07) % 0.5,
+          speed: 0.18 // cycles per second
+        });
+      }
+    }
+
+    const pGeo = new THREE.BufferGeometry();
+    pGeo.setAttribute('position', new THREE.BufferAttribute(pulsePositions, 3));
+
+    const pMat = new THREE.PointsMaterial({
+      map: getGlowTexture(),
+      size: 0.22,
+      transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+
+    pulseTracers = new THREE.Points(pGeo, pMat);
+    pathsGroup.add(pulseTracers);
+  }
 }
 
 /**
@@ -242,52 +406,74 @@ export function update(time, coordSystem, params) {
   if (vectorsGroup) vectorsGroup.visible = params.showVectors !== false;
   if (contourGroup) contourGroup.visible = params.showSurfaces !== false;
 
-  // Animate glowing pulses climbing up the hill
-  if (pulseTracers && pulsePositions && pulseData.length > 0) {
-    for (let i = 0; i < NUM_PULSES; i++) {
-      const stream = pulseData[i % pulseData.length];
-      const speed = 0.35 + 0.1 * (i % 3);
-      stream.step = (stream.step + speed) % (stream.pts.length - 1);
+  // Smooth, non-flashing continuous particle progression
+  if (pulseTracers && pulsePositions && streamlines.length > 0 && particles.length > 0) {
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      const pts = streamlines[p.streamIdx];
+      if (!pts || pts.length < 2) continue;
 
-      const idx = Math.floor(stream.step);
-      const frac = stream.step - idx;
-      const p1 = stream.pts[idx];
-      const p2 = stream.pts[Math.min(stream.pts.length - 1, idx + 1)];
+      // Continuous phase [0, 1)
+      const t = (time * p.speed + p.offset) % 1.0;
 
-      pulsePositions[i * 3] = p1.x + (p2.x - p1.x) * frac;
-      pulsePositions[i * 3 + 1] = p1.y + (p2.y - p1.y) * frac;
-      pulsePositions[i * 3 + 2] = p1.z + (p2.z - p1.z) * frac;
+      // Smoothly hide particle near summit (t > 0.92) to avoid clumping
+      if (t > 0.92) {
+        pulsePositions[i * 3 + 2] = -100; // Place below ground
+        continue;
+      }
+
+      // Sample along streamline points
+      const exactIdx = t * (pts.length - 1);
+      const idx0 = Math.floor(exactIdx);
+      const idx1 = Math.min(pts.length - 1, idx0 + 1);
+      const frac = exactIdx - idx0;
+
+      const pt0 = pts[idx0];
+      const pt1 = pts[idx1];
+
+      pulsePositions[i * 3] = pt0.x + (pt1.x - pt0.x) * frac;
+      pulsePositions[i * 3 + 1] = pt0.y + (pt1.y - pt0.y) * frac;
+      pulsePositions[i * 3 + 2] = pt0.z + (pt1.z - pt0.z) * frac;
     }
+
     pulseTracers.geometry.attributes.position.needsUpdate = true;
   }
 }
 
 /**
  * Uniform Topic Module Contract: getFormulaData()
+ * HUD contains:
+ * 1. Mathematical formulation for the three different coordinate systems (Cartesian, Cylindrical, Spherical)
+ * 2. Active hill profile
+ * 3. Peak altitude ONLY
  */
 export function getFormulaData(coordSystem, params) {
-  const profileNames = ['Single Gaussian Potential Peak', 'Twin Peaks (Dipole Potential)', 'Volcano Crater / Ring Ridge'];
+  const profileNames = [
+    'Single Gaussian Potential Peak',
+    'Twin Peaks (Dipole Potential)',
+    'Volcano Crater / Ring Ridge'
+  ];
   const profileName = profileNames[currentHillProfile] || profileNames[0];
+  const peakAlt = getPeakAltitude();
+
+  const formulaLatex = `\\begin{aligned}
+\\text{\\small Cartesian: } & \\nabla V = \\frac{\\partial V}{\\partial x}\\hat{a}_x + \\frac{\\partial V}{\\partial y}\\hat{a}_y + \\frac{\\partial V}{\\partial z}\\hat{a}_z \\\\[6pt]
+\\text{\\small Cylindrical: } & \\nabla V = \\frac{\\partial V}{\\partial \\rho}\\hat{a}_\\rho + \\frac{1}{\\rho}\\frac{\\partial V}{\\partial \\phi}\\hat{a}_\\phi + \\frac{\\partial V}{\\partial z}\\hat{a}_z \\\\[6pt]
+\\text{\\small Spherical: } & \\nabla V = \\frac{\\partial V}{\\partial r}\\hat{a}_r + \\frac{1}{r}\\frac{\\partial V}{\\partial \\theta}\\hat{a}_\\theta + \\frac{1}{r\\sin\\theta}\\frac{\\partial V}{\\partial \\phi}\\hat{a}_\\phi
+\\end{aligned}`;
 
   return {
     topicTag: 'Gradient',
     topicTitle: 'The Gradient (∇V): Steepest Ascent on a Scalar Potential Hill',
     modeBtnText: 'Switch Hill Profile: ' + profileNames[(currentHillProfile + 1) % 3] + ' →',
-    modeDesc: 'The gradient ∇V is a vector that points strictly along the path of steepest ascent on a topographical scalar hill. Notice how gradient vectors are always perpendicular to the blue equipotential contour rings!',
-    formulaLatex: `\\nabla V = \\frac{\\partial V}{\\partial x}\\hat{a}_x + \\frac{\\partial V}{\\partial y}\\hat{a}_y + \\frac{\\partial V}{\\partial z}\\hat{a}_z`,
-    detailTitle: 'Steepest Ascent & Orthogonality Theorem',
-    detailLatex: `\\begin{aligned}
-\\text{Direction of Maximum Increase: } & \\hat{u}_{\\max} = \\frac{\\nabla V}{|\\nabla V|} \\\\
-\\text{Maximum Directional Derivative: } & \\left(\\frac{dV}{ds}\\right)_{\\max} = |\\nabla V| \\\\
-\\text{Equipotential Orthogonality: } & \\nabla V \\cdot d\\vec{r}_{\\text{contour}} = 0
-\\end{aligned}`,
+    modeDesc: 'The gradient ∇V points in the direction of steepest ascent and is perpendicular to equipotential contours.',
+    formulaLatex,
+    probeSubtitle: 'Active Hill Profile & Summit',
+    detailTitle: '',
+    detailLatex: '', // Hides the bottom detail section completely!
     readout: [
       { label: 'Active Hill Profile', value: profileName },
-      { label: 'Peak Altitude', value: `${hillAmplitude.toFixed(1)} V` },
-      { label: 'Coordinate System', value: 'Cartesian (x, y, z) by default' },
-      { label: 'Yellow Trajectories', value: 'Paths of steepest climb from valley to peak', fullWidth: true },
-      { label: 'Blue Contour Rings', value: 'Equipotential curves V(x,y) = const (perpendicular to ∇V)', fullWidth: true }
+      { label: 'Peak Altitude', value: `${peakAlt.toFixed(1)} V` }
     ]
   };
 }
-

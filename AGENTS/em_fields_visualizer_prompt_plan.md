@@ -17,9 +17,10 @@ The application contains **EXACTLY 4 specialized educational topics**, designed 
 2. **The Gradient ($\nabla V$)**:
    - Visualized as the path of steepest ascent on a 3D topographical scalar potential hill in Cartesian coordinates.
    - Dynamic 3D surface-tangent gradient vector arrows pointing uphill, strictly perpendicular to concentric equipotential contour rings ($V = \text{const}$).
-   - Animated glowing ascending streamlines and pulse tracers traveling to the peak.
-   - Multiple topographical profiles (Single Gaussian Peak, Twin Peaks, Volcano Crater) with adjustable amplitude and spread.
-   - Built-in Gradient Calculator with analytical & numerical evaluation.
+   - Smooth ascending streamlines and non-flashing soft glow particles with individual continuous progression and summit fade-out.
+   - Robust support for all 3 topographical profiles (Single Gaussian Peak, Twin Peaks, Volcano Crater) with depth-offsetting to prevent Z-fighting.
+   - Streamlined HUD displaying gradient formulation for Cartesian, Cylindrical, and Spherical coordinate systems, active hill profile, and peak altitude only.
+   - Built-in Natural Keyboard Gradient Calculator with live KaTeX LaTeX preview and real-time scalar potential $V(P)$ and gradient evaluation without focus loss.
 
 3. **Divergence ($\nabla \cdot \vec{A}$)**:
    - Visualized as the net outward flow of flux from sources and inward flow to sinks.

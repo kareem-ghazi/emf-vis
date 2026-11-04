@@ -131,6 +131,7 @@ export class UIController {
       dirVector: [1.0, 2.0, 2.0],
 
       gradPreset: 'gauss',
+      gradCustomExpr: '3.5 * exp(-(x^2 + y^2) / 3)',
       gradPoint: [1.0, 1.0, 0.0],
 
       divEvalPoint: [0.0, 0.0],
@@ -887,66 +888,127 @@ export class UIController {
   // 5. Gradient Calculator
   renderGradientCalculator(container) {
     const pt = this.calcState.gradPoint;
-    const res = calculateGradientAt(this.calcState.gradPreset, pt[0], pt[1], pt[2]);
+    const expr = this.calcState.gradCustomExpr;
+
+    // Helper: Converts natural keyboard formula to LaTeX representation
+    const formatFormulaToLatex = (raw) => {
+      if (!raw || !raw.trim()) return 'V(x, y, z) = 0';
+      let s = raw.trim();
+      s = s.replace(/\bexp\b/g, '\\exp');
+      s = s.replace(/\bsin\b/g, '\\sin');
+      s = s.replace(/\bcos\b/g, '\\cos');
+      s = s.replace(/\btan\b/g, '\\tan');
+      s = s.replace(/\bsqrt\b/g, '\\sqrt');
+      s = s.replace(/\b(log|ln)\b/g, '\\ln');
+      s = s.replace(/\^([a-zA-Z0-9]+)/g, '^{$1}');
+      s = s.replace(/\^\(([^)]+)\)/g, '^{$1}');
+      s = s.replace(/\*/g, ' \\cdot ');
+      return `V(x, y, z) = ${s}`;
+    };
+
+    // Helper: Evaluates scalar function safely from user expression
+    const evaluateCustomScalar = (raw, x, y, z) => {
+      let s = (raw || '0').trim();
+      s = s.replace(/\^/g, '**');
+      s = s.replace(/(\d)\s*([a-zA-Z(])/g, '$1*$2');
+      s = s.replace(/([a-zA-Z0-9_])\s*(\()/g, (m, p1) => {
+        if (/^(sin|cos|tan|exp|log|ln|sqrt|abs)$/.test(p1)) return `${p1}(`;
+        return `${p1}*(`;
+      });
+
+      try {
+        const fn = new Function('x', 'y', 'z', `
+          const { sin, cos, tan, exp, log, sqrt, abs, PI } = Math;
+          const ln = log;
+          try {
+            const val = (${s});
+            return (typeof val === 'number' && !isNaN(val)) ? val : 0;
+          } catch(e) {
+            return 0;
+          }
+        `);
+        return fn(x, y, z);
+      } catch (err) {
+        return 0;
+      }
+    };
+
+    // Helper: Computes numerical gradient vector and magnitude
+    const evaluateCustomGradientAt = (raw, x, y, z, eps = 1e-4) => {
+      const v0 = evaluateCustomScalar(raw, x, y, z);
+      const gx = (evaluateCustomScalar(raw, x + eps, y, z) - evaluateCustomScalar(raw, x - eps, y, z)) / (2 * eps);
+      const gy = (evaluateCustomScalar(raw, x, y + eps, z) - evaluateCustomScalar(raw, x, y - eps, z)) / (2 * eps);
+      const gz = (evaluateCustomScalar(raw, x, y, z + eps) - evaluateCustomScalar(raw, x, y, z - eps)) / (2 * eps);
+      const mag = Math.sqrt(gx * gx + gy * gy + gz * gz);
+      return { v0, gx, gy, gz, mag };
+    };
+
+    const res = evaluateCustomGradientAt(expr, pt[0], pt[1], pt[2]);
 
     container.innerHTML = `
-      <div class="select-wrapper" style="margin-bottom: 8px;">
-        <select id="calc-grad-preset-sel">
-          ${GRADIENT_PRESETS.map(p => `<option value="${p.id}" ${p.id === this.calcState.gradPreset ? 'selected' : ''}>${p.label}</option>`).join('')}
-        </select>
+      <div class="calc-result-box" style="margin-bottom: 6px;">
+        <div class="calc-result-title">Scalar Function V(x, y, z)</div>
+        <input type="text" class="calc-input-field" id="calc-grad-expr" value="${expr}" placeholder="e.g. 3.5 * exp(-(x^2 + y^2)/3) or x^2 + y^2 + z" style="font-size: 12px; font-weight: 600; color: #38bdf8; margin-bottom: 4px;">
+        <div id="calc-grad-latex-display" class="math-display" style="padding: 6px 10px; font-size: 13px; text-align: center; min-height: 32px; background: rgba(10, 14, 22, 0.75);"></div>
       </div>
 
       <div class="calc-input-row">
         <div class="calc-input-box">
-          <span class="calc-input-label">x₀</span>
+          <span class="calc-input-label"><span class="calc-sym">x</span> <span class="calc-unit">(m)</span></span>
           <input type="number" step="0.1" class="calc-input-field" id="calc-grad-x" value="${pt[0]}">
         </div>
         <div class="calc-input-box">
-          <span class="calc-input-label">y₀</span>
+          <span class="calc-input-label"><span class="calc-sym">y</span> <span class="calc-unit">(m)</span></span>
           <input type="number" step="0.1" class="calc-input-field" id="calc-grad-y" value="${pt[1]}">
         </div>
         <div class="calc-input-box">
-          <span class="calc-input-label">z₀</span>
+          <span class="calc-input-label"><span class="calc-sym">z</span> <span class="calc-unit">(m)</span></span>
           <input type="number" step="0.1" class="calc-input-field" id="calc-grad-z" value="${pt[2]}">
         </div>
       </div>
 
       <div class="calc-result-box" style="margin-top: 8px;">
-        <div class="calc-result-title">Evaluated Gradient Vector & Steepest Slope</div>
+        <div class="calc-result-title">Evaluated Scalar Value & Gradient</div>
         <div class="calc-result-item">
-          <span class="lbl">Scalar Value f(P):</span>
-          <span class="val" id="calc-grad-val">${res.value.toFixed(4)}</span>
+          <span class="lbl">Scalar Value V(P):</span>
+          <span class="val" id="calc-grad-val" style="color: #38bdf8; font-size: 13px; font-weight: 700;">${res.v0.toFixed(4)} V</span>
         </div>
         <div class="calc-result-item">
-          <span class="lbl">Gradient Vector ∇f:</span>
-          <span class="val" id="calc-grad-vec">(${res.gradient.gx.toFixed(3)}, ${res.gradient.gy.toFixed(3)}, ${res.gradient.gz.toFixed(3)})</span>
+          <span class="lbl">Gradient Vector ∇V:</span>
+          <span class="val" id="calc-grad-vec">(${res.gx.toFixed(3)}, ${res.gy.toFixed(3)}, ${res.gz.toFixed(3)}) V/m</span>
         </div>
         <div class="calc-result-item">
-          <span class="lbl">Slope Magnitude |∇f|:</span>
-          <span class="val" id="calc-grad-mag">${res.magnitude.toFixed(4)} V/m</span>
-        </div>
-        <div class="calc-result-item">
-          <span class="lbl">Steepest Climb Direction:</span>
-          <span class="val" id="calc-grad-dir">(${res.unitDirection.x.toFixed(3)}, ${res.unitDirection.y.toFixed(3)}, ${res.unitDirection.z.toFixed(3)})</span>
+          <span class="lbl">Gradient Magnitude |∇V|:</span>
+          <span class="val" id="calc-grad-mag" style="color: #4ade80; font-weight: 600;">${res.mag.toFixed(4)} V/m</span>
         </div>
       </div>
     `;
 
+    const latexEl = container.querySelector('#calc-grad-latex-display');
     const valEl = container.querySelector('#calc-grad-val');
     const vecEl = container.querySelector('#calc-grad-vec');
     const magEl = container.querySelector('#calc-grad-mag');
-    const dirEl = container.querySelector('#calc-grad-dir');
 
-    const updateGradResults = () => {
-      const updated = calculateGradientAt(this.calcState.gradPreset, this.calcState.gradPoint[0], this.calcState.gradPoint[1], this.calcState.gradPoint[2]);
-      if (valEl) valEl.textContent = updated.value.toFixed(4);
-      if (vecEl) vecEl.textContent = `(${updated.gradient.gx.toFixed(3)}, ${updated.gradient.gy.toFixed(3)}, ${updated.gradient.gz.toFixed(3)})`;
-      if (magEl) magEl.textContent = `${updated.magnitude.toFixed(4)} V/m`;
-      if (dirEl) dirEl.textContent = `(${updated.unitDirection.x.toFixed(3)}, ${updated.unitDirection.y.toFixed(3)}, ${updated.unitDirection.z.toFixed(3)})`;
+    const updateLatex = () => {
+      const latex = formatFormulaToLatex(this.calcState.gradCustomExpr);
+      this.renderKaTeX(latex, latexEl, true);
     };
 
-    container.querySelector('#calc-grad-preset-sel').addEventListener('change', (e) => {
-      this.calcState.gradPreset = e.target.value;
+    const updateGradResults = () => {
+      const curPt = this.calcState.gradPoint;
+      const curRes = evaluateCustomGradientAt(this.calcState.gradCustomExpr, curPt[0], curPt[1], curPt[2]);
+      if (valEl) valEl.textContent = `${curRes.v0.toFixed(4)} V`;
+      if (vecEl) vecEl.textContent = `(${curRes.gx.toFixed(3)}, ${curRes.gy.toFixed(3)}, ${curRes.gz.toFixed(3)}) V/m`;
+      if (magEl) magEl.textContent = `${curRes.mag.toFixed(4)} V/m`;
+    };
+
+    // Initial render of live KaTeX preview
+    updateLatex();
+
+    const exprInput = container.querySelector('#calc-grad-expr');
+    exprInput.addEventListener('input', (e) => {
+      this.calcState.gradCustomExpr = e.target.value;
+      updateLatex();
       updateGradResults();
     });
 

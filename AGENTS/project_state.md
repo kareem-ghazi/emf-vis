@@ -76,10 +76,11 @@ Key Highlights of this Refinement:
 - **Simplified Scientific Calculator (Converter Only)**: Dedicated solely to coordinate conversions without tabs; input labels dynamically match the selected source coordinate system ($x, y, z$, $\rho, \phi, z$, or $r, \theta, \phi$) with enlarged mathematical symbol typography.
 
 ### 2. The Gradient ($\nabla V$) (`topics/gradient.js`)
-- **Topographical Potential Hill**: 3D surface $z = V(x, y)$ in Cartesian coordinates with no probe ball.
-- **Profiles**: Single Gaussian Peak ($V = A e^{-r^2/\sigma^2}$), Twin Peaks, and Volcano Crater with adjustable height and spread.
+- **Topographical Potential Hill**: 3D surface $z = V(x, y)$ in Cartesian coordinates with no probe ball, polygon offset to eliminate Z-fighting, and 3 distinct profiles: Single Gaussian Peak, Twin Peaks (Dipole Potential), and Volcano Crater / Ring Ridge.
 - **Surface Tangent Gradient Vectors**: 3D gradient vector arrows lie directly tangent to the surface pointing uphill, strictly perpendicular to equipotential contour rings ($V = \text{const}$).
-- **Ascending Streamlines & Pulses**: Glowing animated particles flowing along the steepest ascent path towards the summit.
+- **Non-Flashing Streamlines & Particles**: Robust Runge-Kutta steepest ascent streamlines for all 3 profiles; particles follow individual continuous phases with soft circular glow textures and smooth summit dissolve, completely eliminating flashing lines and summit clumping.
+- **Streamlined HUD Formulation**: Features the complete mathematical formulation of the gradient across all three coordinate systems (Cartesian, Cylindrical, Spherical), along with the active hill profile and peak altitude only.
+- **Natural Keyboard Gradient Calculator**: Custom function input allows natural typing (e.g. `x^2 + y^2 + z` or `3.5*exp(-(x^2+y^2)/3)`) with real-time automatic conversion to LaTeX preview via KaTeX; evaluates scalar potential $V(P)$, gradient vector $\nabla V$, and slope magnitude $|\nabla V|$ at point $(x, y, z)$ without focus loss.
 
 ### 3. Divergence ($\nabla \cdot \vec{A}$) (`topics/divergence.js`)
 - **Image 1 Styling**: Deep dark background, dense 2D vector field grid.
