@@ -1,30 +1,25 @@
 /**
  * main.js - Main Application Controller
- * Three.js Scene, Camera, OrbitControls, Module Management, Render Loop, & KaTeX HUD Sync.
+ * Three.js Scene, Camera, OrbitControls, Tool Switcher, Render Loop, & KaTeX HUD Sync.
+ * Configured with standard physics Z-up orientation so horizontal plane is X-Y and vertical is Z.
  */
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { UIController } from './ui.js';
 
-// Import All 7 Topics
+// Import The 4 Visualizer Topics
 import * as CoordsTopic from './topics/coords.js';
 import * as GradientTopic from './topics/gradient.js';
 import * as DivergenceTopic from './topics/divergence.js';
 import * as CurlTopic from './topics/curl.js';
-import * as LaplacianTopic from './topics/laplacian.js';
-import * as EFieldTopic from './topics/efield.js';
-import * as EnergyTopic from './topics/energy.js';
 
-// Topic Registry
+// Topic Registry (4 Topics)
 const TOPICS = {
   coords: CoordsTopic,
   gradient: GradientTopic,
   divergence: DivergenceTopic,
-  curl: CurlTopic,
-  laplacian: LaplacianTopic,
-  efield: EFieldTopic,
-  energy: EnergyTopic
+  curl: CurlTopic
 };
 
 class AppController {
@@ -32,17 +27,18 @@ class AppController {
     this.container = document.getElementById('canvas-wrapper');
     this.clock = new THREE.Clock();
 
+    // Set standard Physics Z-Up orientation
+    THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
+
     // Scene & Camera
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x07090e);
 
-    this.camera = new THREE.PerspectiveCamera(
-      45,
-      this.container.clientWidth / this.container.clientHeight,
-      0.1,
-      100
-    );
-    this.camera.position.set(6, 5, 8);
+    const aspect = this.container.clientWidth / this.container.clientHeight;
+    this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 100);
+    this.camera.up.set(0, 0, 1);
+    this.camera.position.set(7.5, -8.5, 6.0);
+    this.camera.lookAt(0, 0, 0);
 
     // WebGL Renderer
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -54,13 +50,14 @@ class AppController {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
-    this.controls.maxDistance = 35;
+    this.controls.maxDistance = 40;
     this.controls.minDistance = 1;
+    this.controls.target.set(0, 0, 0);
 
     // Helpers & Lighting
     this.initEnvironment();
 
-    // Active Topic Container
+    // Active Tool Group
     this.topicGroup = new THREE.Group();
     this.scene.add(this.topicGroup);
 
@@ -73,7 +70,7 @@ class AppController {
       resetCamBtn.addEventListener('click', () => this.resetCamera());
     }
 
-    // Active Topic State
+    // Active Tool State
     this.currentTopicId = null;
     this.currentTopicModule = null;
 
@@ -92,27 +89,35 @@ class AppController {
 
     // Key Directional Light
     const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    keyLight.position.set(10, 15, 10);
+    keyLight.position.set(10, -10, 15);
     this.scene.add(keyLight);
 
     // Fill Directional Light
     const fillLight = new THREE.DirectionalLight(0x38bdf8, 0.6);
-    fillLight.position.set(-10, -5, -10);
+    fillLight.position.set(-10, 10, -5);
     this.scene.add(fillLight);
 
-    // Coordinate Grid Helper
+    // Horizontal Ground Grid Helper in X-Y plane (Z = 0)
     this.gridHelper = new THREE.GridHelper(10, 20, 0x334155, 0x1e293b);
-    this.gridHelper.position.y = -0.01;
+    this.gridHelper.rotation.x = Math.PI / 2; // Lie in horizontal X-Y plane
+    this.gridHelper.position.z = -0.01;
     this.scene.add(this.gridHelper);
 
-    // World Axes Helper (Red = X, Green = Y, Blue = Z)
-    this.axesHelper = new THREE.AxesHelper(5);
+    // World Axes Helper (Red = X, Green = Y, Blue = Z [vertical up])
+    this.axesHelper = new THREE.AxesHelper(4.5);
     this.scene.add(this.axesHelper);
   }
 
-  resetCamera() {
-    this.camera.position.set(6, 5, 8);
-    this.controls.target.set(0, 0, 0);
+  resetCamera(topicId = this.currentTopicId) {
+    if (topicId === 'divergence' || topicId === 'curl') {
+      this.camera.up.set(0, 1, 0);
+      this.camera.position.set(0, 0, 7.8);
+      this.controls.target.set(0, 0, 0);
+    } else {
+      this.camera.up.set(0, 0, 1);
+      this.camera.position.set(7.5, -8.5, 6.0);
+      this.controls.target.set(0, 0, 0);
+    }
     this.controls.update();
   }
 
@@ -154,13 +159,21 @@ class AppController {
       return;
     }
 
-    // Clear previous topic group
+    // Clear previous tool group
     this.disposeGroup(this.topicGroup);
 
     this.currentTopicId = topicId;
     this.currentTopicModule = topicModule;
 
-    // Initialize new topic module
+    // Reset camera appropriately for topic
+    this.resetCamera(topicId);
+
+    // Update grid/axes helpers based on topic
+    const is3D = topicId === 'coords' || topicId === 'gradient';
+    this.gridHelper.visible = this.ui.state.showGrid && is3D;
+    this.axesHelper.visible = this.ui.state.showGrid && is3D;
+
+    // Initialize new tool module
     this.currentTopicModule.init(this.topicGroup, this.ui.state.coordSystem, {
       ...this.ui.state,
       group: this.topicGroup
@@ -172,17 +185,18 @@ class AppController {
   }
 
   onUIStateChange(state) {
-    // Check if topic module changed
+    // Check if tool module changed
     if (state.topic !== this.currentTopicId) {
       this.loadTopic(state.topic);
       return;
     }
 
-    // Toggle grid/axes visibility
-    this.gridHelper.visible = state.showGrid;
-    this.axesHelper.visible = state.showGrid;
+    // Toggle grid/axes visibility (only for 3D topics)
+    const is3D = this.currentTopicId === 'coords' || this.currentTopicId === 'gradient';
+    this.gridHelper.visible = state.showGrid && is3D;
+    this.axesHelper.visible = state.showGrid && is3D;
 
-    // Update topic with new parameters
+    // Update tool with new parameters
     if (this.currentTopicModule) {
       this.currentTopicModule.update(this.clock.getElapsedTime(), state.coordSystem, {
         ...state,

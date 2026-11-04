@@ -550,3 +550,185 @@ input[type="range"]::-webkit-slider-thumb:hover {
   pointer-events: none;
 }
 
+/* ==========================================================================
+   Point Selection Pills for Divergence & Curl
+   ========================================================================== */
+
+.point-pills-row {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  margin-bottom: 8px;
+}
+
+.point-pill-btn {
+  flex: 1;
+  padding: 5px 4px;
+  background-color: var(--bg-input);
+  border: 1px solid var(--bg-card-border);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: center;
+}
+
+.point-pill-btn:hover {
+  background-color: var(--bg-input-hover);
+  color: var(--text-main);
+}
+
+.point-pill-btn.active {
+  background: linear-gradient(135deg, #2563eb, #38bdf8);
+  border-color: #38bdf8;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(56, 189, 248, 0.3);
+}
+
+/* ==========================================================================
+   Scientific Calculator & Converter Panel Styling
+   ========================================================================== */
+
+.calc-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--text-highlight);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.calc-tabs-bar {
+  display: flex;
+  gap: 3px;
+  background-color: var(--bg-input);
+  padding: 3px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--bg-card-border);
+  margin-bottom: 10px;
+  overflow-x: auto;
+}
+
+.calc-tab-btn {
+  flex: 1;
+  padding: 5px 6px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+  text-align: center;
+}
+
+.calc-tab-btn:hover {
+  color: var(--text-main);
+}
+
+.calc-tab-btn.active {
+  background-color: #1e293b;
+  color: var(--text-highlight);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.calc-view-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.calc-input-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.calc-input-row.two-col {
+  grid-template-columns: 1fr 1fr;
+}
+
+.calc-input-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.calc-input-label {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.calc-input-field {
+  width: 100%;
+  padding: 5px 8px;
+  background-color: var(--bg-input);
+  border: 1px solid var(--bg-card-border);
+  border-radius: 4px;
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.calc-input-field:focus {
+  border-color: var(--accent-color);
+}
+
+.calc-result-box {
+  background: rgba(10, 14, 22, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+}
+
+.calc-result-title {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-highlight);
+  margin-bottom: 4px;
+}
+
+.calc-result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.calc-result-item:last-child {
+  border-bottom: none;
+}
+
+.calc-result-item .lbl {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.calc-result-item .val {
+  font-family: var(--font-mono);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 10.5px;
+}
+
+.calc-katex-out {
+  padding: 6px 0;
+  overflow-x: auto;
+}
+
+

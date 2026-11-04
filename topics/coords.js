@@ -1,6 +1,7 @@
 /**
- * topics/coords.js - Topic 1: Coordinate Systems & Differential Elements
- * Demonstrates constant-coordinate surfaces, local unit vectors, and differential volume elements (dv).
+ * topics/coords.js - Coordinate Systems and Spatial Geometries
+ * Demonstrates how Cartesian, Circular Cylindrical, and Spherical coordinate systems
+ * define points using intersecting surfaces, and how local unit vectors change direction in space.
  */
 
 import * as THREE from 'three';
@@ -15,8 +16,9 @@ let arrow1 = null;
 let arrow2 = null;
 let arrow3 = null;
 
-// Surface references for fast geometry / position updates
-let surfaceMeshes = [];
+// Cache to prevent 60 FPS geometry rebuilding
+let lastU = null;
+let lastCoordSystem = null;
 
 /**
  * Uniform Topic Module Contract: init()
@@ -31,41 +33,47 @@ export function init(group, coordSystem, params) {
   group.add(dvGroup);
 
   // Probe marker at P
-  const probeGeo = new THREE.SphereGeometry(0.08, 24, 24);
+  const probeGeo = new THREE.SphereGeometry(0.09, 24, 24);
   const probeMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     emissive: 0x38bdf8,
-    emissiveIntensity: 0.8,
+    emissiveIntensity: 0.9,
     roughness: 0.2
   });
   probeMarker = new THREE.Mesh(probeGeo, probeMat);
   group.add(probeMarker);
 
-  // Create Unit Vector arrows
-  const arrowLen = 1.2;
-  arrow1 = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), arrowLen, 0xef4444, 0.25, 0.12);
-  arrow2 = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), arrowLen, 0x10b981, 0.25, 0.12);
-  arrow3 = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0), arrowLen, 0x3b82f6, 0.25, 0.12);
+  // Unit Vector arrows
+  const arrowLen = 1.3;
+  arrow1 = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), arrowLen, 0xef4444, 0.26, 0.12);
+  arrow2 = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), arrowLen, 0x10b981, 0.26, 0.12);
+  arrow3 = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0), arrowLen, 0x3b82f6, 0.26, 0.12);
 
-  // Thicken arrow line appearance
   arrow1.line.material.linewidth = 3;
   arrow2.line.material.linewidth = 3;
   arrow3.line.material.linewidth = 3;
 
-  vectorsGroup.add(arrow1);
-  vectorsGroup.add(arrow2);
-  vectorsGroup.add(arrow3);
+  vectorsGroup.add(arrow1, arrow2, arrow3);
 
+  lastU = null;
+  lastCoordSystem = null;
+
+  rebuildAll(coordSystem, params);
+}
+
+function rebuildAll(coordSystem, params) {
   buildSurfaces(coordSystem, params);
   buildDifferentialElement(coordSystem, params);
   updateProbeAndVectors(coordSystem, params);
+
+  lastU = [...params.u];
+  lastCoordSystem = coordSystem;
 }
 
 /**
- * Builds the 3 constant-coordinate surfaces according to active coordinate system
+ * Builds the 3 intersecting constant surfaces passing through point P
  */
 function buildSurfaces(coordSystem, params) {
-  // Clear previous surfaces
   while (surfacesGroup.children.length > 0) {
     const child = surfacesGroup.children.pop();
     if (child.geometry) child.geometry.dispose();
@@ -74,7 +82,6 @@ function buildSurfaces(coordSystem, params) {
       else child.material.dispose();
     }
   }
-  surfaceMeshes = [];
 
   const u = params.u;
   const pCart = toCartesian(u, coordSystem);
@@ -90,28 +97,24 @@ function buildSurfaces(coordSystem, params) {
 
   switch (coordSystem) {
     case COORD_SYSTEMS.CARTESIAN: {
-      // 1. Plane x = const (Red tint)
+      // 1. Plane x = const (Red, normal along X)
       const geoX = new THREE.PlaneGeometry(8, 8);
       geoX.rotateY(Math.PI / 2);
-      const matX = new THREE.MeshStandardMaterial({ ...matBase, color: 0xef4444 });
-      const meshX = new THREE.Mesh(geoX, matX);
+      const meshX = new THREE.Mesh(geoX, new THREE.MeshStandardMaterial({ ...matBase, color: 0xef4444 }));
       meshX.position.set(pCart.x, 0, 0);
 
-      // 2. Plane y = const (Green tint)
+      // 2. Plane y = const (Green, normal along Y)
       const geoY = new THREE.PlaneGeometry(8, 8);
-      geoY.rotateX(Math.PI / 2);
-      const matY = new THREE.MeshStandardMaterial({ ...matBase, color: 0x10b981 });
-      const meshY = new THREE.Mesh(geoY, matY);
+      geoY.rotateX(-Math.PI / 2);
+      const meshY = new THREE.Mesh(geoY, new THREE.MeshStandardMaterial({ ...matBase, color: 0x10b981 }));
       meshY.position.set(0, pCart.y, 0);
 
-      // 3. Plane z = const (Blue tint)
+      // 3. Plane z = const (Blue, normal along Z)
       const geoZ = new THREE.PlaneGeometry(8, 8);
-      const matZ = new THREE.MeshStandardMaterial({ ...matBase, color: 0x3b82f6 });
-      const meshZ = new THREE.Mesh(geoZ, matZ);
+      const meshZ = new THREE.Mesh(geoZ, new THREE.MeshStandardMaterial({ ...matBase, color: 0x3b82f6 }));
       meshZ.position.set(0, 0, pCart.z);
 
       surfacesGroup.add(meshX, meshY, meshZ);
-      surfaceMeshes = [meshX, meshY, meshZ];
       break;
     }
 
@@ -120,28 +123,25 @@ function buildSurfaces(coordSystem, params) {
       const phi = u[1];
       const z = u[2];
 
-      // 1. Cylinder rho = const (Cyan tint)
+      // 1. Cylinder rho = const (Cyan, axis along Z)
       const cylGeo = new THREE.CylinderGeometry(rho, rho, 8, 48, 1, true);
-      const cylMat = new THREE.MeshStandardMaterial({ ...matBase, color: 0x06b6d4 });
-      const cylMesh = new THREE.Mesh(cylGeo, cylMat);
+      cylGeo.rotateX(Math.PI / 2); // Orient cylinder axis along Z
+      const cylMesh = new THREE.Mesh(cylGeo, new THREE.MeshStandardMaterial({ ...matBase, color: 0x06b6d4 }));
       cylMesh.position.set(0, 0, 0);
 
-      // 2. Azimuthal half-plane phi = const (Amber tint)
+      // 2. Azimuthal half-plane phi = const (Amber, originating at Z-axis)
       const halfPlaneGeo = new THREE.PlaneGeometry(5, 8);
-      halfPlaneGeo.translate(2.5, 0, 0); // starts at z-axis and extends outward
-      halfPlaneGeo.rotateY(-phi);
-      const halfPlaneMat = new THREE.MeshStandardMaterial({ ...matBase, color: 0xf59e0b });
-      const halfPlaneMesh = new THREE.Mesh(halfPlaneGeo, halfPlaneMat);
+      halfPlaneGeo.translate(2.5, 0, 0);
+      halfPlaneGeo.rotateX(Math.PI / 2);
+      halfPlaneGeo.rotateZ(phi);
+      const halfPlaneMesh = new THREE.Mesh(halfPlaneGeo, new THREE.MeshStandardMaterial({ ...matBase, color: 0xf59e0b }));
 
-      // 3. Horizontal plane z = const (Blue tint)
+      // 3. Horizontal disk z = const (Blue, normal along Z)
       const discGeo = new THREE.CircleGeometry(5, 48);
-      discGeo.rotateX(Math.PI / 2);
-      const discMat = new THREE.MeshStandardMaterial({ ...matBase, color: 0x3b82f6 });
-      const discMesh = new THREE.Mesh(discGeo, discMat);
-      discMesh.position.set(0, z, 0);
+      const discMesh = new THREE.Mesh(discGeo, new THREE.MeshStandardMaterial({ ...matBase, color: 0x3b82f6 }));
+      discMesh.position.set(0, 0, z);
 
       surfacesGroup.add(cylMesh, halfPlaneMesh, discMesh);
-      surfaceMeshes = [cylMesh, halfPlaneMesh, discMesh];
       break;
     }
 
@@ -150,31 +150,26 @@ function buildSurfaces(coordSystem, params) {
       const theta = u[1];
       const phi = u[2];
 
-      // 1. Sphere r = const (Purple tint)
+      // 1. Sphere r = const (Purple)
       const sphereGeo = new THREE.SphereGeometry(r, 48, 32);
-      const sphereMat = new THREE.MeshStandardMaterial({ ...matBase, color: 0x8b5cf6 });
-      const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
+      const sphereMesh = new THREE.Mesh(sphereGeo, new THREE.MeshStandardMaterial({ ...matBase, color: 0x8b5cf6 }));
 
-      // 2. Cone theta = const (Pink tint)
-      // Cone with half-angle theta opening from apex at origin
-      const coneHeight = 6;
-      const coneRadius = Math.max(0.01, coneHeight * Math.tan(theta));
-      const coneGeo = new THREE.ConeGeometry(coneRadius, coneHeight, 48, 1, true);
-      // Align cone apex to origin pointing along +z
-      coneGeo.translate(0, -coneHeight / 2, 0);
-      coneGeo.rotateX(-Math.PI / 2); // align with z-axis
-      const coneMat = new THREE.MeshStandardMaterial({ ...matBase, color: 0xec4899 });
-      const coneMesh = new THREE.Mesh(coneGeo, coneMat);
+      // 2. Cone theta = const (Pink, apex at origin opening around Z-axis)
+      const coneH = 4.5;
+      const coneR = Math.max(0.01, coneH * Math.tan(theta));
+      const coneGeo = new THREE.ConeGeometry(coneR, coneH, 48, 1, true);
+      coneGeo.translate(0, -coneH / 2, 0); // apex at origin
+      coneGeo.rotateX(-Math.PI / 2); // open around Z-axis
+      const coneMesh = new THREE.Mesh(coneGeo, new THREE.MeshStandardMaterial({ ...matBase, color: 0xec4899 }));
 
-      // 3. Azimuthal half-plane phi = const (Amber tint)
+      // 3. Azimuthal half-plane phi = const (Amber)
       const halfPlaneGeo = new THREE.PlaneGeometry(5.5, 9);
       halfPlaneGeo.translate(2.75, 0, 0);
-      halfPlaneGeo.rotateY(-phi);
-      const halfPlaneMat = new THREE.MeshStandardMaterial({ ...matBase, color: 0xf59e0b });
-      const halfPlaneMesh = new THREE.Mesh(halfPlaneGeo, halfPlaneMat);
+      halfPlaneGeo.rotateX(Math.PI / 2);
+      halfPlaneGeo.rotateZ(phi);
+      const halfPlaneMesh = new THREE.Mesh(halfPlaneGeo, new THREE.MeshStandardMaterial({ ...matBase, color: 0xf59e0b }));
 
       surfacesGroup.add(sphereMesh, coneMesh, halfPlaneMesh);
-      surfaceMeshes = [sphereMesh, coneMesh, halfPlaneMesh];
       break;
     }
   }
@@ -192,109 +187,69 @@ function buildDifferentialElement(coordSystem, params) {
 
   const u = params.u;
   const pCart = toCartesian(u, coordSystem);
-
   const dvColor = 0xffeb3b; // Bright gold
-  const edgeColor = 0xffffff;
 
   switch (coordSystem) {
     case COORD_SYSTEMS.CARTESIAN: {
-      // dv = dx dy dz
-      const dx = 0.5;
-      const dy = 0.5;
-      const dz = 0.5;
-
+      const dx = 0.5, dy = 0.5, dz = 0.5;
       const boxGeo = new THREE.BoxGeometry(dx, dy, dz);
       boxGeo.translate(pCart.x + dx / 2, pCart.y + dy / 2, pCart.z + dz / 2);
 
-      const boxMat = new THREE.MeshBasicMaterial({
-        color: dvColor,
-        transparent: true,
-        opacity: 0.25,
-        depthWrite: false
-      });
-      const boxMesh = new THREE.Mesh(boxGeo, boxMat);
-
+      const boxMesh = new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial({ color: dvColor, transparent: true, opacity: 0.25, depthWrite: false }));
       const edges = new THREE.EdgesGeometry(boxGeo);
-      const edgeLine = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: edgeColor, linewidth: 2 }));
-
-      dvGroup.add(boxMesh);
-      dvGroup.add(edgeLine);
+      const edgeLine = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 }));
+      dvGroup.add(boxMesh, edgeLine);
       break;
     }
 
     case COORD_SYSTEMS.CYLINDRICAL: {
-      // dv = rho * drho * dphi * dz
       const rho0 = Math.max(0.2, u[0]);
       const phi0 = u[1];
       const z0 = u[2];
+      const drho = 0.45, dphi = 0.25, dz = 0.45;
 
-      const drho = 0.45;
-      const dphi = 0.25; // radians (~14 deg)
-      const dz = 0.45;
-
-      // Construct cylindrical wedge vertices
-      const pts = [];
+      const linePositions = [];
       const segs = 6;
       for (let iz = 0; iz <= 1; iz++) {
         const curZ = z0 + iz * dz;
-        for (let ip = 0; ip <= segs; ip++) {
-          const curPhi = phi0 + (ip / segs) * dphi;
-          // Inner arc
-          pts.push(new THREE.Vector3(rho0 * Math.cos(curPhi), rho0 * Math.sin(curPhi), curZ));
-          // Outer arc
-          pts.push(new THREE.Vector3((rho0 + drho) * Math.cos(curPhi), (rho0 + drho) * Math.sin(curPhi), curZ));
+        for (let ip = 0; ip < segs; ip++) {
+          const p1 = phi0 + (ip / segs) * dphi;
+          const p2 = phi0 + ((ip + 1) / segs) * dphi;
+          linePositions.push(
+            rho0 * Math.cos(p1), rho0 * Math.sin(p1), curZ,
+            rho0 * Math.cos(p2), rho0 * Math.sin(p2), curZ,
+            (rho0 + drho) * Math.cos(p1), (rho0 + drho) * Math.sin(p1), curZ,
+            (rho0 + drho) * Math.cos(p2), (rho0 + drho) * Math.sin(p2), curZ
+          );
         }
       }
 
-      // Build wedge lines for wireframe visualization
-      const linePositions = [];
-      // Bottom face
-      for (let ip = 0; ip < segs; ip++) {
-        const p1 = new THREE.Vector3(rho0 * Math.cos(phi0 + (ip / segs) * dphi), rho0 * Math.sin(phi0 + (ip / segs) * dphi), z0);
-        const p2 = new THREE.Vector3(rho0 * Math.cos(phi0 + ((ip + 1) / segs) * dphi), rho0 * Math.sin(phi0 + ((ip + 1) / segs) * dphi), z0);
-        const p3 = new THREE.Vector3((rho0 + drho) * Math.cos(phi0 + (ip / segs) * dphi), (rho0 + drho) * Math.sin(phi0 + (ip / segs) * dphi), z0);
-        const p4 = new THREE.Vector3((rho0 + drho) * Math.cos(phi0 + ((ip + 1) / segs) * dphi), (rho0 + drho) * Math.sin(phi0 + ((ip + 1) / segs) * dphi), z0);
-        linePositions.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
-        linePositions.push(p3.x, p3.y, p3.z, p4.x, p4.y, p4.z);
+      // Vertical & radial edges
+      const c1 = [rho0 * Math.cos(phi0), rho0 * Math.sin(phi0)];
+      const c2 = [(rho0 + drho) * Math.cos(phi0), (rho0 + drho) * Math.sin(phi0)];
+      const c3 = [rho0 * Math.cos(phi0 + dphi), rho0 * Math.sin(phi0 + dphi)];
+      const c4 = [(rho0 + drho) * Math.cos(phi0 + dphi), (rho0 + drho) * Math.sin(phi0 + dphi)];
 
-        // Top face
-        linePositions.push(p1.x, p1.y, p1.z + dz, p2.x, p2.y, p2.z + dz);
-        linePositions.push(p3.x, p3.y, p3.z + dz, p4.x, p4.y, p4.z + dz);
-      }
-      // Radial spokes
-      const rA1 = new THREE.Vector3(rho0 * Math.cos(phi0), rho0 * Math.sin(phi0), z0);
-      const rA2 = new THREE.Vector3((rho0 + drho) * Math.cos(phi0), (rho0 + drho) * Math.sin(phi0), z0);
-      const rB1 = new THREE.Vector3(rho0 * Math.cos(phi0 + dphi), rho0 * Math.sin(phi0 + dphi), z0);
-      const rB2 = new THREE.Vector3((rho0 + drho) * Math.cos(phi0 + dphi), (rho0 + drho) * Math.sin(phi0 + dphi), z0);
-      linePositions.push(rA1.x, rA1.y, rA1.z, rA2.x, rA2.y, rA2.z);
-      linePositions.push(rB1.x, rB1.y, rB1.z, rB2.x, rB2.y, rB2.z);
-      linePositions.push(rA1.x, rA1.y, rA1.z + dz, rA2.x, rA2.y, rA2.z + dz);
-      linePositions.push(rB1.x, rB1.y, rB1.z + dz, rB2.x, rB2.y, rB2.z + dz);
-
-      // Vertical posts
-      linePositions.push(rA1.x, rA1.y, rA1.z, rA1.x, rA1.y, rA1.z + dz);
-      linePositions.push(rA2.x, rA2.y, rA2.z, rA2.x, rA2.y, rA2.z + dz);
-      linePositions.push(rB1.x, rB1.y, rB1.z, rB1.x, rB1.y, rB1.z + dz);
-      linePositions.push(rB2.x, rB2.y, rB2.z, rB2.x, rB2.y, rB2.z + dz);
+      [c1, c2, c3, c4].forEach(([x, y]) => {
+        linePositions.push(x, y, z0, x, y, z0 + dz);
+      });
+      linePositions.push(c1[0], c1[1], z0, c2[0], c2[1], z0);
+      linePositions.push(c3[0], c3[1], z0, c4[0], c4[1], z0);
+      linePositions.push(c1[0], c1[1], z0 + dz, c2[0], c2[1], z0 + dz);
+      linePositions.push(c3[0], c3[1], z0 + dz, c4[0], c4[1], z0 + dz);
 
       const wedgeGeo = new THREE.BufferGeometry();
       wedgeGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
-      const wedgeMat = new THREE.LineBasicMaterial({ color: dvColor, linewidth: 2 });
-      const wedgeMesh = new THREE.LineSegments(wedgeGeo, wedgeMat);
-
+      const wedgeMesh = new THREE.LineSegments(wedgeGeo, new THREE.LineBasicMaterial({ color: dvColor, linewidth: 2 }));
       dvGroup.add(wedgeMesh);
       break;
     }
 
     case COORD_SYSTEMS.SPHERICAL: {
-      // dv = r^2 sin(theta) dr dtheta dphi
       const r0 = Math.max(0.3, u[0]);
       const theta0 = u[1];
       const phi0 = u[2];
-
-      const dr = 0.45;
-      const dtheta = 0.22; // ~12 deg
-      const dphi = 0.22;   // ~12 deg
+      const dr = 0.45, dtheta = 0.22, dphi = 0.22;
 
       const sphToCart = (r, t, p) => ({
         x: r * Math.sin(t) * Math.cos(p),
@@ -305,7 +260,6 @@ function buildDifferentialElement(coordSystem, params) {
       const linePositions = [];
       const segs = 5;
 
-      // Draw arcs along phi and theta on inner and outer shells
       for (const r of [r0, r0 + dr]) {
         for (let ip = 0; ip < segs; ip++) {
           const p1 = phi0 + (ip / segs) * dphi;
@@ -329,7 +283,6 @@ function buildDifferentialElement(coordSystem, params) {
         }
       }
 
-      // Radial corner spokes connecting inner and outer spheres
       const corners = [
         [theta0, phi0],
         [theta0 + dtheta, phi0],
@@ -344,9 +297,7 @@ function buildDifferentialElement(coordSystem, params) {
 
       const wedgeGeo = new THREE.BufferGeometry();
       wedgeGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
-      const wedgeMat = new THREE.LineBasicMaterial({ color: dvColor, linewidth: 2 });
-      const wedgeMesh = new THREE.LineSegments(wedgeGeo, wedgeMat);
-
+      const wedgeMesh = new THREE.LineSegments(wedgeGeo, new THREE.LineBasicMaterial({ color: dvColor, linewidth: 2 }));
       dvGroup.add(wedgeMesh);
       break;
     }
@@ -354,19 +305,17 @@ function buildDifferentialElement(coordSystem, params) {
 }
 
 /**
- * Updates probe marker position and local unit vector orientations
+ * Updates probe marker position and unit vector orientations
  */
 function updateProbeAndVectors(coordSystem, params) {
   const u = params.u;
   const pCart = toCartesian(u, coordSystem);
 
-  // Probe marker position
   probeMarker.position.set(pCart.x, pCart.y, pCart.z);
 
-  // Local Unit Vectors
   const { a1, a2, a3 } = getUnitVectors(u, coordSystem);
-
   const root = new THREE.Vector3(pCart.x, pCart.y, pCart.z);
+
   arrow1.position.copy(root);
   arrow1.setDirection(new THREE.Vector3(a1.x, a1.y, a1.z).normalize());
 
@@ -376,19 +325,18 @@ function updateProbeAndVectors(coordSystem, params) {
   arrow3.position.copy(root);
   arrow3.setDirection(new THREE.Vector3(a3.x, a3.y, a3.z).normalize());
 
-  // Colors match coordinate system theme
   if (coordSystem === COORD_SYSTEMS.CARTESIAN) {
-    arrow1.setColor(0xef4444); // x (Red)
-    arrow2.setColor(0x10b981); // y (Green)
-    arrow3.setColor(0x3b82f6); // z (Blue)
+    arrow1.setColor(0xef4444);
+    arrow2.setColor(0x10b981);
+    arrow3.setColor(0x3b82f6);
   } else if (coordSystem === COORD_SYSTEMS.CYLINDRICAL) {
-    arrow1.setColor(0x06b6d4); // rho (Cyan)
-    arrow2.setColor(0xf59e0b); // phi (Amber)
-    arrow3.setColor(0x3b82f6); // z (Blue)
+    arrow1.setColor(0x06b6d4);
+    arrow2.setColor(0xf59e0b);
+    arrow3.setColor(0x3b82f6);
   } else if (coordSystem === COORD_SYSTEMS.SPHERICAL) {
-    arrow1.setColor(0x8b5cf6); // r (Purple)
-    arrow2.setColor(0xec4899); // theta (Pink)
-    arrow3.setColor(0xf59e0b); // phi (Amber)
+    arrow1.setColor(0x8b5cf6);
+    arrow2.setColor(0xec4899);
+    arrow3.setColor(0xf59e0b);
   }
 }
 
@@ -396,15 +344,18 @@ function updateProbeAndVectors(coordSystem, params) {
  * Uniform Topic Module Contract: update()
  */
 export function update(time, coordSystem, params) {
-  // Respect visibility checkboxes
   surfacesGroup.visible = params.showSurfaces;
   vectorsGroup.visible = params.showVectors;
   dvGroup.visible = true;
 
-  // Rebuild surfaces & differential wedge to track probe point P
-  buildSurfaces(coordSystem, params);
-  buildDifferentialElement(coordSystem, params);
-  updateProbeAndVectors(coordSystem, params);
+  // Only rebuild geometries if coordinates or system changed!
+  const u = params.u;
+  const coordChanged = coordSystem !== lastCoordSystem;
+  const uChanged = !lastU || Math.abs(u[0] - lastU[0]) > 0.001 || Math.abs(u[1] - lastU[1]) > 0.001 || Math.abs(u[2] - lastU[2]) > 0.001;
+
+  if (coordChanged || uChanged) {
+    rebuildAll(coordSystem, params);
+  }
 }
 
 /**
@@ -412,9 +363,8 @@ export function update(time, coordSystem, params) {
  */
 export function getFormulaData(coordSystem, params) {
   const u = params.u;
-  const pCart = toCartesian(u, coordSystem);
   const mf = getMetricFactors(u, coordSystem);
-  const { a1, a2, a3, names } = getUnitVectors(u, coordSystem);
+  const { a1, a2, a3 } = getUnitVectors(u, coordSystem);
 
   let formulaLatex = '';
   let detailLatex = '';
@@ -436,10 +386,10 @@ dv &= dx\\,dy\\,dz \\\\
 
       readout = [
         { label: 'Coordinates (x, y, z)', value: `(${u[0].toFixed(2)}, ${u[1].toFixed(2)}, ${u[2].toFixed(2)}) m` },
-        { label: 'Differential Volume dv', value: `${(0.5 * 0.5 * 0.5).toFixed(3)} m³ (sample)` },
-        { label: 'Unit Vector â_x (World)', value: `(${a1.x.toFixed(2)}, ${a1.y.toFixed(2)}, ${a1.z.toFixed(2)})` },
-        { label: 'Unit Vector â_y (World)', value: `(${a2.x.toFixed(2)}, ${a2.y.toFixed(2)}, ${a2.z.toFixed(2)})` },
-        { label: 'Unit Vector â_z (World)', value: `(${a3.x.toFixed(2)}, ${a3.y.toFixed(2)}, ${a3.z.toFixed(2)})` }
+        { label: 'Differential Volume dv', value: `${(0.5 * 0.5 * 0.5).toFixed(3)} m³` },
+        { label: 'Unit Vector â_x', value: `(${a1.x.toFixed(2)}, ${a1.y.toFixed(2)}, ${a1.z.toFixed(2)})` },
+        { label: 'Unit Vector â_y', value: `(${a2.x.toFixed(2)}, ${a2.y.toFixed(2)}, ${a2.z.toFixed(2)})` },
+        { label: 'Unit Vector â_z', value: `(${a3.x.toFixed(2)}, ${a3.y.toFixed(2)}, ${a3.z.toFixed(2)})` }
       ];
       break;
     }
@@ -468,10 +418,10 @@ dv &= \\rho\\,d\\rho\\,d\\phi\\,dz
 
       readout = [
         { label: 'Coordinates (ρ, φ, z)', value: `(${rho.toFixed(2)} m, ${phiDeg}°, ${z.toFixed(2)} m)` },
-        { label: 'Scaling Factor h₂ = ρ', value: `${rho.toFixed(2)}` },
-        { label: 'Unit Vector â_ρ (World)', value: `(${a1.x.toFixed(2)}, ${a1.y.toFixed(2)}, ${a1.z.toFixed(2)})` },
-        { label: 'Unit Vector â_φ (World)', value: `(${a2.x.toFixed(2)}, ${a2.y.toFixed(2)}, ${a2.z.toFixed(2)})` },
-        { label: 'Unit Vector â_z (World)', value: `(${a3.x.toFixed(2)}, ${a3.y.toFixed(2)}, ${a3.z.toFixed(2)})` }
+        { label: 'Scale Factor h₂ = ρ', value: `${rho.toFixed(2)}` },
+        { label: 'Unit Vector â_ρ', value: `(${a1.x.toFixed(2)}, ${a1.y.toFixed(2)}, ${a1.z.toFixed(2)})` },
+        { label: 'Unit Vector â_φ', value: `(${a2.x.toFixed(2)}, ${a2.y.toFixed(2)}, ${a2.z.toFixed(2)})` },
+        { label: 'Unit Vector â_z', value: `(${a3.x.toFixed(2)}, ${a3.y.toFixed(2)}, ${a3.z.toFixed(2)})` }
       ];
       break;
     }
@@ -502,9 +452,9 @@ dv &= r^2 \\sin\\theta\\,dr\\,d\\theta\\,d\\phi
       readout = [
         { label: 'Coordinates (r, θ, φ)', value: `(${r.toFixed(2)} m, ${thetaDeg}°, ${phiDeg}°)` },
         { label: 'Metric Factors (h₂, h₃)', value: `h₂ = ${mf.h2.toFixed(2)}, h₃ = ${mf.h3.toFixed(2)}` },
-        { label: 'Unit Vector â_r (World)', value: `(${a1.x.toFixed(2)}, ${a1.y.toFixed(2)}, ${a1.z.toFixed(2)})` },
-        { label: 'Unit Vector â_θ (World)', value: `(${a2.x.toFixed(2)}, ${a2.y.toFixed(2)}, ${a2.z.toFixed(2)})` },
-        { label: 'Unit Vector â_φ (World)', value: `(${a3.x.toFixed(2)}, ${a3.y.toFixed(2)}, ${a3.z.toFixed(2)})` }
+        { label: 'Unit Vector â_r', value: `(${a1.x.toFixed(2)}, ${a1.y.toFixed(2)}, ${a1.z.toFixed(2)})` },
+        { label: 'Unit Vector â_θ', value: `(${a2.x.toFixed(2)}, ${a2.y.toFixed(2)}, ${a2.z.toFixed(2)})` },
+        { label: 'Unit Vector â_φ', value: `(${a3.x.toFixed(2)}, ${a3.y.toFixed(2)}, ${a3.z.toFixed(2)})` }
       ];
       break;
     }
@@ -512,13 +462,12 @@ dv &= r^2 \\sin\\theta\\,dr\\,d\\theta\\,d\\phi
 
   return {
     topicTag: 'Coordinates',
-    topicTitle: 'Orthogonal Coordinate Systems & Differential Elements',
+    topicTitle: 'Coordinate Systems and Spatial Geometries',
     modeBtnText: 'Focus: Surfaces & dv',
-    modeDesc: 'Constant surfaces color-coded: Red/Cyan/Purple (u₁), Green/Amber/Pink (u₂), Blue (u₃). Yellow wireframe shows dv.',
+    modeDesc: 'Points are defined by intersecting constant surfaces. Unit vectors change orientation dynamically with position.',
     formulaLatex,
     detailTitle: 'Unit Vector Transformation Matrix',
     detailLatex,
     readout
   };
 }
-

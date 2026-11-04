@@ -478,3 +478,207 @@ export const LAPLACIAN_FIELDS = {
   }
 };
 
+/* ==========================================================================
+   Scientific Calculator & Converter Engine
+   ========================================================================== */
+
+/**
+ * Converts a point [u1, u2, u3] from any coordinate system to all 3 systems
+ * angleMode: 'deg' or 'rad'
+ */
+export function convertCoordinatesAll(fromSystem, u, angleMode = 'deg') {
+  let normU = [...u];
+  if (angleMode === 'deg') {
+    if (fromSystem === COORD_SYSTEMS.CYLINDRICAL) {
+      normU[1] = (u[1] * Math.PI) / 180;
+    } else if (fromSystem === COORD_SYSTEMS.SPHERICAL) {
+      normU[1] = (u[1] * Math.PI) / 180;
+      normU[2] = (u[2] * Math.PI) / 180;
+    }
+  }
+
+  // Convert to Cartesian
+  const cart = toCartesian(normU, fromSystem);
+  const x = cart.x;
+  const y = cart.y;
+  const z = cart.z;
+
+  // Convert from Cartesian to Cylindrical
+  const cyl = fromCartesian(cart, COORD_SYSTEMS.CYLINDRICAL);
+  const rho = cyl[0];
+  const phiRad = cyl[1];
+  const phiDeg = (phiRad * 180) / Math.PI;
+
+  // Convert from Cartesian to Spherical
+  const sph = fromCartesian(cart, COORD_SYSTEMS.SPHERICAL);
+  const r = sph[0];
+  const thetaRad = sph[1];
+  const thetaDeg = (thetaRad * 180) / Math.PI;
+  const sphPhiRad = sph[2];
+  const sphPhiDeg = (sphPhiRad * 180) / Math.PI;
+
+  return {
+    cartesian: { x, y, z },
+    cylindrical: { rho, phiRad, phiDeg, z },
+    spherical: { r, thetaRad, thetaDeg, phiRad: sphPhiRad, phiDeg: sphPhiDeg }
+  };
+}
+
+/**
+ * Calculates unit vectors, metric scaling factors, and transformation matrix at u
+ */
+export function calculateUnitVectorsAt(coordSystem, u) {
+  const { a1, a2, a3, names } = getUnitVectors(u, coordSystem);
+  const mf = getMetricFactors(u, coordSystem);
+  return { a1, a2, a3, names, mf };
+}
+
+/**
+ * Calculates magnitude, unit vector, direction cosines, and direction angles
+ */
+export function calculateVectorMagnitudeAndDirection(A) {
+  const [Ax, Ay, Az] = A;
+  const mag = Math.sqrt(Ax * Ax + Ay * Ay + Az * Az);
+  const safeMag = Math.max(1e-12, mag);
+
+  const ux = Ax / safeMag;
+  const uy = Ay / safeMag;
+  const uz = Az / safeMag;
+
+  const alphaRad = Math.acos(Math.max(-1, Math.min(1, ux)));
+  const betaRad = Math.acos(Math.max(-1, Math.min(1, uy)));
+  const gammaRad = Math.acos(Math.max(-1, Math.min(1, uz)));
+
+  const alphaDeg = (alphaRad * 180) / Math.PI;
+  const betaDeg = (betaRad * 180) / Math.PI;
+  const gammaDeg = (gammaRad * 180) / Math.PI;
+
+  const thetaRad = Math.acos(Math.max(-1, Math.min(1, uz)));
+  let phiRad = Math.atan2(Ay, Ax);
+  if (phiRad < 0) phiRad += 2 * Math.PI;
+
+  return {
+    magnitude: mag,
+    unitVector: { x: ux, y: uy, z: uz },
+    directionCosines: { cosAlpha: ux, cosBeta: uy, cosGamma: uz },
+    directionAngles: {
+      alphaRad, betaRad, gammaRad,
+      alphaDeg, betaDeg, gammaDeg
+    },
+    sphericalAngles: {
+      thetaRad, thetaDeg: (thetaRad * 180) / Math.PI,
+      phiRad, phiDeg: (phiRad * 180) / Math.PI
+    }
+  };
+}
+
+/**
+ * Evaluates gradient of preset or custom scalar functions at (x, y, z)
+ */
+export const GRADIENT_PRESETS = [
+  { id: 'quad', label: 'f(x, y, z) = x² + y² + z²', formula: 'x^2 + y^2 + z^2',
+    eval: (x, y, z) => x*x + y*y + z*z,
+    grad: (x, y, z) => ({ gx: 2*x, gy: 2*y, gz: 2*z })
+  },
+  { id: 'gauss', label: 'V(x, y) = 3.5 exp(-(x² + y²)/3)', formula: '3.5 e^{-(x^2 + y^2)/3}',
+    eval: (x, y) => 3.5 * Math.exp(-(x*x + y*y)/3),
+    grad: (x, y) => {
+      const v = 3.5 * Math.exp(-(x*x + y*y)/3);
+      return { gx: -(2/3)*x*v, gy: -(2/3)*y*v, gz: 0 };
+    }
+  },
+  { id: 'hyp', label: 'f(x, y, z) = 2xy - z²', formula: '2xy - z^2',
+    eval: (x, y, z) => 2*x*y - z*z,
+    grad: (x, y, z) => ({ gx: 2*y, gy: 2*x, gz: -2*z })
+  },
+  { id: 'inv_r', label: 'V(r) = 1 / √(x² + y² + z²)', formula: '\\frac{1}{\\sqrt{x^2 + y^2 + z^2}}',
+    eval: (x, y, z) => 1 / Math.max(0.01, Math.sqrt(x*x + y*y + z*z)),
+    grad: (x, y, z) => {
+      const r2 = x*x + y*y + z*z;
+      const r3 = Math.max(0.001, Math.pow(r2, 1.5));
+      return { gx: -x/r3, gy: -y/r3, gz: -z/r3 };
+    }
+  }
+];
+
+export function calculateGradientAt(presetId, x, y, z) {
+  const p = GRADIENT_PRESETS.find(pr => pr.id === presetId) || GRADIENT_PRESETS[0];
+  const value = p.eval(x, y, z);
+  const { gx, gy, gz } = p.grad(x, y, z);
+  const mag = Math.sqrt(gx*gx + gy*gy + gz*gz);
+  const safeMag = Math.max(1e-12, mag);
+  return {
+    preset: p,
+    value,
+    gradient: { gx, gy, gz },
+    magnitude: mag,
+    unitDirection: { x: gx/safeMag, y: gy/safeMag, z: gz/safeMag }
+  };
+}
+
+/**
+ * Evaluates divergence for 4-point divergence field at (x, y)
+ */
+export function calculateDivergenceAt(pointsData, x, y, eps = 0.35) {
+  let divTotal = 0;
+  let Fx = 0;
+  let Fy = 0;
+
+  pointsData.forEach(p => {
+    const dx = x - p.x;
+    const dy = y - p.y;
+    const r2 = dx*dx + dy*dy;
+    const denom = r2 + eps*eps;
+    Fx += p.q * dx / denom;
+    Fy += p.q * dy / denom;
+
+    const dDiv = p.q * (2 * eps * eps) / (denom * denom);
+    divTotal += dDiv;
+  });
+
+  let classification = 'Incompressible / Solenoidal (∇·A ≈ 0)';
+  if (divTotal > 0.08) classification = 'Source (Net Outflow / Expansion, ∇·A > 0)';
+  else if (divTotal < -0.08) classification = 'Sink (Net Inflow / Compression, ∇·A < 0)';
+
+  return {
+    field: { Fx, Fy },
+    fieldMagnitude: Math.sqrt(Fx*Fx + Fy*Fy),
+    divergence: divTotal,
+    classification
+  };
+}
+
+/**
+ * Evaluates curl for 4-vortex curl field at (x, y)
+ */
+export function calculateCurlAt(vorticesData, x, y, eps = 0.35) {
+  let curlTotal = 0;
+  let Fx = 0;
+  let Fy = 0;
+
+  vorticesData.forEach(v => {
+    const dx = x - v.x;
+    const dy = y - v.y;
+    const r2 = dx*dx + dy*dy;
+    const denom = r2 + eps*eps;
+
+    Fx += v.gamma * (-dy) / denom;
+    Fy += v.gamma * (dx) / denom;
+
+    const dCurl = v.gamma * (2 * eps * eps) / (denom * denom);
+    curlTotal += dCurl;
+  });
+
+  let classification = 'Irrotational Flow (∇×A ≈ 0)';
+  if (curlTotal > 0.08) classification = 'Rotational Vortex (Counter-Clockwise, ∇×A > 0)';
+  else if (curlTotal < -0.08) classification = 'Rotational Vortex (Clockwise, ∇×A < 0)';
+
+  return {
+    field: { Fx, Fy },
+    fieldMagnitude: Math.sqrt(Fx*Fx + Fy*Fy),
+    curlZ: curlTotal,
+    angularVelocityZ: 0.5 * curlTotal,
+    classification
+  };
+}
+

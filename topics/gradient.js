@@ -1,380 +1,293 @@
 /**
- * topics/gradient.js - Topic 2: The Gradient
- * Visualizes ∇Φ as the vector of maximum rate of ascent perpendicular to equipotential surfaces.
+ * topics/gradient.js - The Gradient (∇V) Visualizer
+ * Visualizes the gradient as the path of steepest ascent on a 3D topographical scalar hill.
+ * Cartesian by default, without any probe ball.
+ * Displays equipotential contour rings, 3D surface tangent gradient vectors,
+ * and animated ascent streamlines climbing to the potential summit.
  */
 
 import * as THREE from 'three';
-import {
-  COORD_SYSTEMS,
-  toCartesian,
-  fromCartesian,
-  curvilinearVectorToCartesian,
-  GRADIENT_FIELDS,
-  computeGradient,
-  getUnitVectors
-} from '../math.js';
 
-let arrowsGroup = null;
-let equipotentialGroup = null;
-let probeGroup = null;
+let gradientGroup = null;
+let hillMesh = null;
+let contourGroup = null;
+let vectorsGroup = null;
+let pathsGroup = null;
+let pulseTracers = null;
+let pulsePositions = null;
+let pulseData = [];
 
-let probeArrow = null;
-let probeMarker = null;
-let tangentPlane = null;
+let currentHillProfile = 0; // 0: Single Peak, 1: Twin Peaks, 2: Volcano Crater
+let hillAmplitude = 3.5;
+let hillSpread = 3.0;
 
-// Secondary mode alternative: Radial Point Source Potential Φ = 3 / r
-const RADIAL_FIELD = {
-  evalScalar: (u, coordSystem) => {
-    const c = toCartesian(u, coordSystem);
-    const r = Math.sqrt(c.x * c.x + c.y * c.y + c.z * c.z);
-    return 3.5 / Math.max(0.4, r);
-  },
-  evalGradient: (u, coordSystem) => {
-    // ∇(k/r) = -k/r² a_r
-    const c = toCartesian(u, coordSystem);
-    const r = Math.max(0.4, Math.sqrt(c.x * c.x + c.y * c.y + c.z * c.z));
-    const factor = -3.5 / (r * r * r);
-    const cartGrad = { x: factor * c.x, y: factor * c.y, z: factor * c.z };
+const NUM_STREAMLINES = 16;
+const NUM_PULSES = 64;
 
-    // Project onto local basis
-    const { a1, a2, a3 } = getUnitVectors(u, coordSystem);
-    return [
-      cartGrad.x * a1.x + cartGrad.y * a1.y + cartGrad.z * a1.z,
-      cartGrad.x * a2.x + cartGrad.y * a2.y + cartGrad.z * a2.z,
-      cartGrad.x * a3.x + cartGrad.y * a3.y + cartGrad.z * a3.z
-    ];
+/**
+ * Evaluates the scalar field height V(x, y) based on active profile
+ */
+function evalScalar(x, y) {
+  const r2 = x * x + y * y;
+  if (currentHillProfile === 0) {
+    // Single Gaussian Peak
+    return hillAmplitude * Math.exp(-r2 / Math.max(0.5, hillSpread));
+  } else if (currentHillProfile === 1) {
+    // Twin Peaks
+    const r1 = (x - 1.5) * (x - 1.5) + y * y;
+    const r2 = (x + 1.5) * (x + 1.5) + y * y;
+    return (hillAmplitude * 0.9) * (Math.exp(-r1 / 2.2) + Math.exp(-r2 / 2.2));
+  } else {
+    // Volcano Crater / Ring Peak
+    const r = Math.sqrt(r2);
+    return hillAmplitude * (r2 / 2.0) * Math.exp(-r2 / 3.0);
   }
-};
+}
+
+/**
+ * Evaluates numerical gradient (gx, gy) = (dV/dx, dV/dy)
+ */
+function evalGrad(x, y, eps = 1e-4) {
+  const gx = (evalScalar(x + eps, y) - evalScalar(x - eps, y)) / (2 * eps);
+  const gy = (evalScalar(x, y + eps) - evalScalar(x, y - eps)) / (2 * eps);
+  return { gx, gy, mag: Math.sqrt(gx * gx + gy * gy) };
+}
 
 /**
  * Uniform Topic Module Contract: init()
  */
 export function init(group, coordSystem, params) {
-  arrowsGroup = new THREE.Group();
-  equipotentialGroup = new THREE.Group();
-  probeGroup = new THREE.Group();
+  gradientGroup = new THREE.Group();
+  group.add(gradientGroup);
 
-  group.add(arrowsGroup);
-  group.add(equipotentialGroup);
-  group.add(probeGroup);
+  currentHillProfile = (params.profileIndex !== undefined) ? params.profileIndex % 3 : 0;
+  hillAmplitude = params.hillAmplitude !== undefined ? params.hillAmplitude : 3.5;
+  hillSpread = params.hillSpread !== undefined ? params.hillSpread : 3.0;
 
-  // Probe marker
-  const pGeo = new THREE.SphereGeometry(0.09, 24, 24);
-  const pMat = new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    emissive: 0x38bdf8,
-    emissiveIntensity: 0.9,
-    roughness: 0.2
-  });
-  probeMarker = new THREE.Mesh(pGeo, pMat);
-  probeGroup.add(probeMarker);
-
-  // Probe Gradient Vector (bold orange/gold)
-  probeArrow = new THREE.ArrowHelper(
-    new THREE.Vector3(0, 1, 0),
-    new THREE.Vector3(0, 0, 0),
-    1.5,
-    0xf59e0b,
-    0.35,
-    0.15
-  );
-  probeArrow.line.material.linewidth = 4;
-  probeGroup.add(probeArrow);
-
-  // Local equipotential tangent disc at P
-  const discGeo = new THREE.CircleGeometry(0.7, 32);
-  const discMat = new THREE.MeshStandardMaterial({
-    color: 0x38bdf8,
-    transparent: true,
-    opacity: 0.35,
-    side: THREE.DoubleSide,
-    depthWrite: false,
-    roughness: 0.4
-  });
-  tangentPlane = new THREE.Mesh(discGeo, discMat);
-  probeGroup.add(tangentPlane);
-
-  buildFieldGrid(coordSystem, params);
-  buildEquipotentialSurfaces(coordSystem, params);
-  updateProbe(coordSystem, params);
+  buildScene(params);
 }
 
 /**
- * Evaluates active scalar field and gradient at point u
+ * Builds the topographical hill, vectors, contours, and streamlines
  */
-function evalField(u, coordSystem, isSecondary) {
-  if (isSecondary) {
-    const s = RADIAL_FIELD.evalScalar(u, coordSystem);
-    const g = RADIAL_FIELD.evalGradient(u, coordSystem);
-    return { scalar: s, gradComponents: g };
-  }
-  const fieldDef = GRADIENT_FIELDS[coordSystem];
-  if (!fieldDef) return { scalar: 0, gradComponents: [0, 0, 0] };
-  return {
-    scalar: fieldDef.evalScalar(u),
-    gradComponents: fieldDef.evalGradient(u)
-  };
-}
-
-/**
- * Builds 3D vector field of arrows pointing in direction of ∇Φ
- */
-function buildFieldGrid(coordSystem, params) {
-  while (arrowsGroup.children.length > 0) {
-    const child = arrowsGroup.children.pop();
-    if (child.dispose) child.dispose();
+function buildScene(params) {
+  while (gradientGroup.children.length > 0) {
+    const child = gradientGroup.children.pop();
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) {
+      if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+      else child.material.dispose();
+    }
   }
 
-  const isSecondary = params.modeSecondary;
-  const samplePoints = [];
-  const span = 3.0;
-  const step = 1.5;
+  contourGroup = new THREE.Group();
+  vectorsGroup = new THREE.Group();
+  pathsGroup = new THREE.Group();
 
-  for (let x = -span; x <= span; x += step) {
-    for (let y = -span; y <= span; y += step) {
-      for (let z = -span; z <= span; z += step) {
-        if (Math.abs(x) < 0.2 && Math.abs(y) < 0.2 && Math.abs(z) < 0.2) continue;
-        samplePoints.push({ x, y, z });
+  gradientGroup.add(contourGroup);
+  gradientGroup.add(vectorsGroup);
+  gradientGroup.add(pathsGroup);
+
+  // 1. Topographical Hill Mesh in X-Y (elevation along Z)
+  const size = 6.0;
+  const segs = 64;
+  const geo = new THREE.PlaneGeometry(size, size, segs, segs);
+
+  const pos = geo.attributes.position;
+  const colors = [];
+  const col = new THREE.Color();
+
+  let maxZ = 0.001;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const zVal = evalScalar(x, y);
+    pos.setZ(i, zVal);
+    if (zVal > maxZ) maxZ = zVal;
+  }
+
+  // Colormap based on elevation
+  for (let i = 0; i < pos.count; i++) {
+    const zVal = pos.getZ(i);
+    const t = Math.min(1, Math.max(0, zVal / maxZ));
+    // Blue/Teal base -> Vibrant Green mid -> Bright Gold summit
+    col.setHSL(0.58 * (1.0 - t), 0.9, 0.45 + 0.25 * t);
+    colors.push(col.r, col.g, col.b);
+  }
+
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.computeVertexNormals();
+
+  const mat = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.35,
+    metalness: 0.1,
+    side: THREE.DoubleSide
+  });
+  hillMesh = new THREE.Mesh(geo, mat);
+  gradientGroup.add(hillMesh);
+
+  // Wireframe subtle overlay
+  const wireMat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.08 });
+  gradientGroup.add(new THREE.Mesh(geo, wireMat));
+
+  // 2. Equipotential Contour Rings (V = const)
+  const numContours = 6;
+  for (let c = 1; c <= numContours; c++) {
+    const targetV = (c / (numContours + 1)) * maxZ;
+    // Sample circle or contour line at targetV
+    const ringRadius = Math.sqrt(Math.max(0, -hillSpread * Math.log(Math.max(1e-4, targetV / hillAmplitude))));
+    if (ringRadius > 0.05 && ringRadius < 3.2 && currentHillProfile === 0) {
+      const curve = new THREE.EllipseCurve(0, 0, ringRadius, ringRadius, 0, 2 * Math.PI, false, 0);
+      const pts = curve.getPoints(64).map(p => new THREE.Vector3(p.x, p.y, targetV + 0.02));
+      const ringGeo = new THREE.BufferGeometry().setFromPoints(pts);
+      const ringLine = new THREE.LineLoop(ringGeo, new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.6 }));
+      contourGroup.add(ringLine);
+    }
+  }
+
+  // 3. Dense 3D Surface Tangent Gradient Arrows
+  const arrowSpacing = 0.65;
+  for (let x = -2.6; x <= 2.6; x += arrowSpacing) {
+    for (let y = -2.6; y <= 2.6; y += arrowSpacing) {
+      const z = evalScalar(x, y);
+      const { gx, gy, mag } = evalGrad(x, y);
+      if (mag > 0.08) {
+        // Gradient points in direction of steepest ascent:
+        // Horizontal: (gx, gy). Along surface: elevation increases by mag.
+        const dir = new THREE.Vector3(gx, gy, mag).normalize();
+        const len = Math.min(0.5, Math.max(0.18, mag * 0.35));
+        const arr = new THREE.ArrowHelper(dir, new THREE.Vector3(x, y, z + 0.03), len, 0xf59e0b, len * 0.35, len * 0.18);
+        arr.line.material.linewidth = 2;
+        arr.line.material.transparent = true;
+        arr.line.material.opacity = 0.75;
+        vectorsGroup.add(arr);
       }
     }
   }
 
-  samplePoints.forEach((pt) => {
-    const u = fromCartesian(pt, coordSystem);
-    const { gradComponents } = evalField(u, coordSystem, isSecondary);
+  // 4. Steepest Ascent Streamlines from base to summit
+  pulseData = [];
+  const startRadius = 2.7;
+  for (let i = 0; i < NUM_STREAMLINES; i++) {
+    const angle = (i / NUM_STREAMLINES) * 2 * Math.PI;
+    let curX = startRadius * Math.cos(angle);
+    let curY = startRadius * Math.sin(angle);
 
-    const worldGrad = curvilinearVectorToCartesian(gradComponents, u, coordSystem);
-    const mag = Math.sqrt(worldGrad.x ** 2 + worldGrad.y ** 2 + worldGrad.z ** 2);
-    if (mag < 0.05) return;
+    const pts = [];
+    pts.push(new THREE.Vector3(curX, curY, evalScalar(curX, curY) + 0.03));
 
-    const dir = new THREE.Vector3(worldGrad.x, worldGrad.y, worldGrad.z).normalize();
-    const len = Math.min(0.9, Math.max(0.25, mag * 0.45));
+    for (let s = 0; s < 60; s++) {
+      const { gx, gy, mag } = evalGrad(curX, curY);
+      if (mag < 0.04) break;
+      const step = 0.08;
+      curX += (gx / mag) * step;
+      curY += (gy / mag) * step;
+      pts.push(new THREE.Vector3(curX, curY, evalScalar(curX, curY) + 0.03));
+      if (Math.sqrt(curX * curX + curY * curY) < 0.08) break;
+    }
 
-    // Color code arrow by gradient magnitude
-    // Low: cyan/blue -> Medium: green/yellow -> High: orange/red
-    const t = Math.min(1, mag / 2.5);
-    const color = new THREE.Color().setHSL(0.6 * (1 - t), 0.9, 0.55);
-
-    const arrow = new THREE.ArrowHelper(
-      dir,
-      new THREE.Vector3(pt.x, pt.y, pt.z),
-      len,
-      color.getHex(),
-      len * 0.35,
-      len * 0.18
-    );
-    arrow.line.material.transparent = true;
-    arrow.line.material.opacity = 0.65;
-    arrowsGroup.add(arrow);
-  });
-}
-
-/**
- * Builds equipotential surfaces / contour rings
- */
-function buildEquipotentialSurfaces(coordSystem, params) {
-  while (equipotentialGroup.children.length > 0) {
-    const child = equipotentialGroup.children.pop();
-    if (child.geometry) child.geometry.dispose();
-    if (child.material) child.material.dispose();
-  }
-
-  const isSecondary = params.modeSecondary;
-  const mat = new THREE.MeshStandardMaterial({
-    color: 0x60a5fa,
-    transparent: true,
-    opacity: 0.2,
-    wireframe: true,
-    side: THREE.DoubleSide,
-    depthWrite: false
-  });
-
-  if (isSecondary) {
-    // Radial potential equipotentials are concentric spheres
-    [1.0, 1.8, 2.6].forEach((radius) => {
-      const sphGeo = new THREE.SphereGeometry(radius, 28, 20);
-      const mesh = new THREE.Mesh(sphGeo, mat);
-      equipotentialGroup.add(mesh);
-    });
-  } else {
-    // Canonical coordinate-dependent surfaces
-    if (coordSystem === COORD_SYSTEMS.CARTESIAN) {
-      // Hyperbolic paraboloid saddles Φ = 0.2(x² - y² + 2z) = C
-      [-1.0, 0, 1.0].forEach((cVal) => {
-        const segs = 20;
-        const geo = new THREE.PlaneGeometry(5, 5, segs, segs);
-        const pos = geo.attributes.position;
-        for (let i = 0; i < pos.count; i++) {
-          const x = pos.getX(i);
-          const y = pos.getY(i);
-          // 2z = 5 * cVal - x² + y² => z = 2.5*cVal - 0.5*x² + 0.5*y²
-          const z = 2.5 * cVal - 0.5 * x * x + 0.5 * y * y;
-          pos.setZ(i, Math.max(-3, Math.min(3, z)));
-        }
-        geo.computeVertexNormals();
-        const mesh = new THREE.Mesh(geo, mat);
-        equipotentialGroup.add(mesh);
-      });
-    } else if (coordSystem === COORD_SYSTEMS.CYLINDRICAL) {
-      // Φ = 0.15 ρ² z cos(2φ)
-      // Visualized via cylindrical contour shells
-      [1.2, 2.2, 3.2].forEach((rho) => {
-        const geo = new THREE.CylinderGeometry(rho, rho, 4, 32, 4, true);
-        const mesh = new THREE.Mesh(geo, mat);
-        equipotentialGroup.add(mesh);
-      });
-    } else if (coordSystem === COORD_SYSTEMS.SPHERICAL) {
-      // Φ = r sin²θ cosφ
-      [1.5, 2.5, 3.5].forEach((radius) => {
-        const geo = new THREE.SphereGeometry(radius, 24, 18);
-        const mesh = new THREE.Mesh(geo, mat);
-        equipotentialGroup.add(mesh);
-      });
+    if (pts.length > 3) {
+      const pathGeo = new THREE.BufferGeometry().setFromPoints(pts);
+      const pathLine = new THREE.Line(pathGeo, new THREE.LineBasicMaterial({ color: 0xffeb3b, transparent: true, opacity: 0.7, linewidth: 2 }));
+      pathsGroup.add(pathLine);
+      pulseData.push({ pts, step: Math.random() * (pts.length - 1) });
     }
   }
+
+  // 5. Animated glowing pulse particles climbing along streamlines
+  initPulses();
 }
 
-/**
- * Updates probe marker, gradient vector at P, and local equipotential tangent disk
- */
-function updateProbe(coordSystem, params) {
-  const u = params.u;
-  const isSecondary = params.modeSecondary;
-  const pCart = toCartesian(u, coordSystem);
+function initPulses() {
+  if (pulseData.length === 0) return;
+  pulsePositions = new Float32Array(NUM_PULSES * 3);
 
-  probeMarker.position.set(pCart.x, pCart.y, pCart.z);
-
-  const { gradComponents } = evalField(u, coordSystem, isSecondary);
-  const worldGrad = curvilinearVectorToCartesian(gradComponents, u, coordSystem);
-  const mag = Math.sqrt(worldGrad.x ** 2 + worldGrad.y ** 2 + worldGrad.z ** 2);
-
-  const root = new THREE.Vector3(pCart.x, pCart.y, pCart.z);
-  probeArrow.position.copy(root);
-
-  if (mag > 1e-4) {
-    const dir = new THREE.Vector3(worldGrad.x, worldGrad.y, worldGrad.z).normalize();
-    const len = Math.min(2.5, Math.max(0.6, mag * 0.7));
-    probeArrow.setDirection(dir);
-    probeArrow.setLength(len, len * 0.3, len * 0.15);
-    probeArrow.visible = true;
-
-    // Orient tangent equipotential plane so its normal matches dir (∇Φ ⊥ equipotential)
-    tangentPlane.position.copy(root);
-    tangentPlane.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
-    tangentPlane.visible = params.showSurfaces;
-  } else {
-    probeArrow.visible = false;
-    tangentPlane.visible = false;
+  for (let i = 0; i < NUM_PULSES; i++) {
+    const stream = pulseData[i % pulseData.length];
+    const pt = stream.pts[0];
+    pulsePositions[i * 3] = pt.x;
+    pulsePositions[i * 3 + 1] = pt.y;
+    pulsePositions[i * 3 + 2] = pt.z;
   }
+
+  const pGeo = new THREE.BufferGeometry();
+  pGeo.setAttribute('position', new THREE.BufferAttribute(pulsePositions, 3));
+  const pMat = new THREE.PointsMaterial({
+    color: 0xffffff,
+    size: 0.12,
+    transparent: true,
+    opacity: 0.95,
+    blending: THREE.AdditiveBlending
+  });
+  pulseTracers = new THREE.Points(pGeo, pMat);
+  pathsGroup.add(pulseTracers);
 }
 
 /**
  * Uniform Topic Module Contract: update()
  */
 export function update(time, coordSystem, params) {
-  arrowsGroup.visible = params.showVectors;
-  equipotentialGroup.visible = params.showSurfaces;
+  const nextProfile = (params.profileIndex !== undefined) ? params.profileIndex % 3 : 0;
+  const nextAmp = params.hillAmplitude !== undefined ? params.hillAmplitude : hillAmplitude;
+  const nextSpread = params.hillSpread !== undefined ? params.hillSpread : hillSpread;
 
-  updateProbe(coordSystem, params);
+  if (nextProfile !== currentHillProfile || Math.abs(nextAmp - hillAmplitude) > 0.05 || Math.abs(nextSpread - hillSpread) > 0.05) {
+    currentHillProfile = nextProfile;
+    hillAmplitude = nextAmp;
+    hillSpread = nextSpread;
+    buildScene(params);
+  }
+
+  if (vectorsGroup) vectorsGroup.visible = params.showVectors !== false;
+  if (contourGroup) contourGroup.visible = params.showSurfaces !== false;
+
+  // Animate glowing pulses climbing up the hill
+  if (pulseTracers && pulsePositions && pulseData.length > 0) {
+    for (let i = 0; i < NUM_PULSES; i++) {
+      const stream = pulseData[i % pulseData.length];
+      const speed = 0.35 + 0.1 * (i % 3);
+      stream.step = (stream.step + speed) % (stream.pts.length - 1);
+
+      const idx = Math.floor(stream.step);
+      const frac = stream.step - idx;
+      const p1 = stream.pts[idx];
+      const p2 = stream.pts[Math.min(stream.pts.length - 1, idx + 1)];
+
+      pulsePositions[i * 3] = p1.x + (p2.x - p1.x) * frac;
+      pulsePositions[i * 3 + 1] = p1.y + (p2.y - p1.y) * frac;
+      pulsePositions[i * 3 + 2] = p1.z + (p2.z - p1.z) * frac;
+    }
+    pulseTracers.geometry.attributes.position.needsUpdate = true;
+  }
 }
 
 /**
  * Uniform Topic Module Contract: getFormulaData()
  */
 export function getFormulaData(coordSystem, params) {
-  const u = params.u;
-  const isSecondary = params.modeSecondary;
-  const { scalar, gradComponents } = evalField(u, coordSystem, isSecondary);
-  const worldGrad = curvilinearVectorToCartesian(gradComponents, u, coordSystem);
-  const mag = Math.sqrt(worldGrad.x ** 2 + worldGrad.y ** 2 + worldGrad.z ** 2);
-
-  let formulaLatex = '';
-  let detailLatex = '';
-  let readout = [];
-
-  if (isSecondary) {
-    formulaLatex = `\\begin{aligned}
-\\Phi(\\vec{r}) &= \\frac{k}{r} \\quad (k = 3.5) \\\\
-\\nabla \\Phi &= -\\frac{k}{r^2} \\hat{a}_r \\\\
-|\\nabla \\Phi| &= \\frac{k}{r^2}
-\\end{aligned}`;
-
-    detailLatex = `\\text{Radial symmetry: } \\nabla \\Phi \\text{ points along } -\\hat{a}_r \\text{ towards the source center.}`;
-  } else {
-    switch (coordSystem) {
-      case COORD_SYSTEMS.CARTESIAN: {
-        formulaLatex = `\\begin{aligned}
-\\Phi(x,y,z) &= 0.2(x^2 - y^2 + 2z) \\\\
-\\nabla \\Phi &= \\frac{\\partial \\Phi}{\\partial x}\\hat{a}_x + \\frac{\\partial \\Phi}{\\partial y}\\hat{a}_y + \\frac{\\partial \\Phi}{\\partial z}\\hat{a}_z \\\\
-&= 0.4x\\,\\hat{a}_x - 0.4y\\,\\hat{a}_y + 0.4\\,\\hat{a}_z
-\\end{aligned}`;
-
-        detailLatex = `\\begin{aligned}
-\\frac{\\partial \\Phi}{\\partial x} &= 0.4(${u[0].toFixed(2)}) = ${gradComponents[0].toFixed(2)} \\\\
-\\frac{\\partial \\Phi}{\\partial y} &= -0.4(${u[1].toFixed(2)}) = ${gradComponents[1].toFixed(2)} \\\\
-\\frac{\\partial \\Phi}{\\partial z} &= 0.40
-\\end{aligned}`;
-        break;
-      }
-
-      case COORD_SYSTEMS.CYLINDRICAL: {
-        formulaLatex = `\\begin{aligned}
-\\Phi(\\rho,\\phi,z) &= 0.15\\rho^2 z \\cos(2\\phi) \\\\
-\\nabla \\Phi &= \\frac{\\partial \\Phi}{\\partial \\rho}\\hat{a}_\\rho + \\frac{1}{\\rho}\\frac{\\partial \\Phi}{\\partial \\phi}\\hat{a}_\\phi + \\frac{\\partial \\Phi}{\\partial z}\\hat{a}_z \\\\
-&= 0.3\\rho z \\cos 2\\phi\\,\\hat{a}_\\rho - 0.3\\rho z \\sin 2\\phi\\,\\hat{a}_\\phi + 0.15\\rho^2 \\cos 2\\phi\\,\\hat{a}_z
-\\end{aligned}`;
-
-        detailLatex = `\\begin{aligned}
-G_\\rho &= 0.30(${u[0].toFixed(2)})(${u[2].toFixed(2)})\\cos(2\\phi) = ${gradComponents[0].toFixed(2)} \\\\
-G_\\phi &= -0.30(${u[0].toFixed(2)})(${u[2].toFixed(2)})\\sin(2\\phi) = ${gradComponents[1].toFixed(2)} \\\\
-G_z &= 0.15(${u[0].toFixed(2)})^2\\cos(2\\phi) = ${gradComponents[2].toFixed(2)}
-\\end{aligned}`;
-        break;
-      }
-
-      case COORD_SYSTEMS.SPHERICAL: {
-        formulaLatex = `\\begin{aligned}
-\\Phi(r,\\theta,\\phi) &= r\\sin^2\\theta\\cos\\phi \\\\
-\\nabla \\Phi &= \\frac{\\partial \\Phi}{\\partial r}\\hat{a}_r + \\frac{1}{r}\\frac{\\partial \\Phi}{\\partial \\theta}\\hat{a}_\\theta + \\frac{1}{r\\sin\\theta}\\frac{\\partial \\Phi}{\\partial \\phi}\\hat{a}_\\phi \\\\
-&= \\sin^2\\theta\\cos\\phi\\,\\hat{a}_r + \\sin(2\\theta)\\cos\\phi\\,\\hat{a}_\\theta - \\sin\\theta\\sin\\phi\\,\\hat{a}_\\phi
-\\end{aligned}`;
-
-        detailLatex = `\\begin{aligned}
-G_r &= \\sin^2\\theta\\cos\\phi = ${gradComponents[0].toFixed(2)} \\\\
-G_\\theta &= \\sin(2\\theta)\\cos\\phi = ${gradComponents[1].toFixed(2)} \\\\
-G_\\phi &= -\\sin\\theta\\sin\\phi = ${gradComponents[2].toFixed(2)}
-\\end{aligned}`;
-        break;
-      }
-    }
-  }
-
-  readout = [
-    { label: 'Scalar Field Φ at P', value: scalar.toFixed(3) },
-    { label: '|∇Φ| (Steepest Ascent)', value: `${mag.toFixed(3)} units/m` },
-    {
-      label: '∇Φ Components (Curvilinear)',
-      value: `(${gradComponents[0].toFixed(2)}, ${gradComponents[1].toFixed(2)}, ${gradComponents[2].toFixed(2)})`,
-      fullWidth: true
-    },
-    {
-      label: '∇Φ World Vector (Cartesian)',
-      value: `(${worldGrad.x.toFixed(2)}, ${worldGrad.y.toFixed(2)}, ${worldGrad.z.toFixed(2)})`,
-      fullWidth: true
-    }
-  ];
+  const profileNames = ['Single Gaussian Potential Peak', 'Twin Peaks (Dipole Potential)', 'Volcano Crater / Ring Ridge'];
+  const profileName = profileNames[currentHillProfile] || profileNames[0];
 
   return {
     topicTag: 'Gradient',
-    topicTitle: 'The Gradient of a Scalar Field (∇Φ)',
-    modeBtnText: isSecondary ? 'Mode: Central Source Well' : 'Mode: Canonical Polynomial Field',
-    modeDesc: isSecondary
-      ? 'Radial well Φ = 3.5/r with spherical equipotential shells.'
-      : 'Canonical field. Orange vector points along ∇Φ (normal to translucent equipotential disc at P).',
-    formulaLatex,
-    detailTitle: 'Gradient Component Breakdown',
-    detailLatex,
-    readout
+    topicTitle: 'The Gradient (∇V): Steepest Ascent on a Scalar Potential Hill',
+    modeBtnText: 'Switch Hill Profile: ' + profileNames[(currentHillProfile + 1) % 3] + ' →',
+    modeDesc: 'The gradient ∇V is a vector that points strictly along the path of steepest ascent on a topographical scalar hill. Notice how gradient vectors are always perpendicular to the blue equipotential contour rings!',
+    formulaLatex: `\\nabla V = \\frac{\\partial V}{\\partial x}\\hat{a}_x + \\frac{\\partial V}{\\partial y}\\hat{a}_y + \\frac{\\partial V}{\\partial z}\\hat{a}_z`,
+    detailTitle: 'Steepest Ascent & Orthogonality Theorem',
+    detailLatex: `\\begin{aligned}
+\\text{Direction of Maximum Increase: } & \\hat{u}_{\\max} = \\frac{\\nabla V}{|\\nabla V|} \\\\
+\\text{Maximum Directional Derivative: } & \\left(\\frac{dV}{ds}\\right)_{\\max} = |\\nabla V| \\\\
+\\text{Equipotential Orthogonality: } & \\nabla V \\cdot d\\vec{r}_{\\text{contour}} = 0
+\\end{aligned}`,
+    readout: [
+      { label: 'Active Hill Profile', value: profileName },
+      { label: 'Peak Altitude', value: `${hillAmplitude.toFixed(1)} V` },
+      { label: 'Coordinate System', value: 'Cartesian (x, y, z) by default' },
+      { label: 'Yellow Trajectories', value: 'Paths of steepest climb from valley to peak', fullWidth: true },
+      { label: 'Blue Contour Rings', value: 'Equipotential curves V(x,y) = const (perpendicular to ∇V)', fullWidth: true }
+    ]
   };
 }
 

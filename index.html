@@ -40,37 +40,33 @@
         <label for="topic-select" class="section-label">Field Concept</label>
         <div class="select-wrapper">
           <select id="topic-select">
-            <option value="coords">Coordinate Systems & Differential Elements</option>
-            <option value="gradient">The Gradient (∇Φ)</option>
-            <option value="divergence">Divergence of a Vector (∇·A)</option>
-            <option value="curl">The Curl of a Vector (∇×A)</option>
-            <option value="laplacian">The Laplacian Operator (∇²Φ)</option>
-            <option value="efield">Electric Field Intensity (E)</option>
-            <option value="energy">Energy in Electrostatic Fields (We)</option>
+            <option value="coords">Coordinate Systems and Spatial Geometries</option>
+            <option value="gradient">The Gradient (∇V)</option>
+            <option value="divergence">Divergence (∇·A)</option>
+            <option value="curl">The Curl (∇×A)</option>
           </select>
         </div>
       </section>
 
-      <section class="control-section">
+      <!-- 1. Coordinate Systems Controls -->
+      <section class="control-section topic-controls" id="coords-controls-section">
         <label class="section-label">Coordinate System</label>
         <div class="segmented-control" id="coord-system-control">
           <button type="button" class="segment-btn active" data-coord="cartesian">Cartesian</button>
           <button type="button" class="segment-btn" data-coord="cylindrical">Cylindrical</button>
           <button type="button" class="segment-btn" data-coord="spherical">Spherical</button>
         </div>
-      </section>
 
-      <section class="control-section">
-        <div class="section-header-row">
+        <div class="section-header-row" style="margin-top: 14px;">
           <label class="section-label">Probe Point P Coordinates</label>
           <button id="reset-point-btn" class="text-btn" title="Reset Point P">Reset P</button>
         </div>
 
-        <!-- Dynamic coordinate sliders -->
+        <!-- Dynamic coordinate sliders for Coords -->
         <div class="slider-group" id="slider-group-1">
           <div class="slider-label-row">
             <span class="coord-symbol" id="label-u1">x</span>
-            <span class="coord-value" id="val-u1">1.50</span>
+            <span class="coord-value" id="val-u1">1.50 m</span>
           </div>
           <input type="range" id="slider-u1" min="-4" max="4" step="0.05" value="1.5">
         </div>
@@ -78,7 +74,7 @@
         <div class="slider-group" id="slider-group-2">
           <div class="slider-label-row">
             <span class="coord-symbol" id="label-u2">y</span>
-            <span class="coord-value" id="val-u2">1.50</span>
+            <span class="coord-value" id="val-u2">1.50 m</span>
           </div>
           <input type="range" id="slider-u2" min="-4" max="4" step="0.05" value="1.5">
         </div>
@@ -86,21 +82,99 @@
         <div class="slider-group" id="slider-group-3">
           <div class="slider-label-row">
             <span class="coord-symbol" id="label-u3">z</span>
-            <span class="coord-value" id="val-u3">1.50</span>
+            <span class="coord-value" id="val-u3">1.50 m</span>
           </div>
           <input type="range" id="slider-u3" min="-4" max="4" step="0.05" value="1.5">
         </div>
       </section>
 
-      <section class="control-section">
-        <label class="section-label">Field Configuration Mode</label>
-        <button type="button" id="mode-toggle" class="mode-action-btn">
-          <span class="btn-icon">⚡</span>
-          <span id="mode-toggle-text">Toggle Mode</span>
-        </button>
-        <div id="mode-description" class="control-hint">Current mode description</div>
+      <!-- 2. Gradient Topographical Controls (Cartesian by default, no probe ball) -->
+      <section class="control-section topic-controls" id="gradient-controls-section" style="display: none;">
+        <label class="section-label">Hill Potential Profile</label>
+        <div class="select-wrapper">
+          <select id="gradient-profile-select">
+            <option value="0">Single Gaussian Peak (Summit at Origin)</option>
+            <option value="1">Twin Peaks (Dipole Potential Hills)</option>
+            <option value="2">Volcano Crater / Ring Ridge</option>
+          </select>
+        </div>
+
+        <div class="slider-group" style="margin-top: 12px;">
+          <div class="slider-label-row">
+            <span class="coord-symbol">Peak Altitude (V)</span>
+            <span class="coord-value" id="val-grad-amp">3.5 V</span>
+          </div>
+          <input type="range" id="slider-grad-amp" min="1.0" max="5.0" step="0.1" value="3.5">
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <span class="coord-symbol">Hill Spread / Width (σ)</span>
+            <span class="coord-value" id="val-grad-spread">3.0</span>
+          </div>
+          <input type="range" id="slider-grad-spread" min="1.0" max="5.0" step="0.1" value="3.0">
+        </div>
       </section>
 
+      <!-- 3. Divergence & Curl 4-Point Plane Controls (Images 1 & 2 Backgrounds) -->
+      <section class="control-section topic-controls" id="multi-points-controls-section" style="display: none;">
+        <div class="section-header-row">
+          <label class="section-label" id="multi-points-title">4 Controllable Points on 2D Plane</label>
+          <button id="reset-points-layout-btn" class="text-btn">Reset Layout</button>
+        </div>
+
+        <!-- Point Selection Pills -->
+        <div class="point-pills-row" id="point-pills-container">
+          <button type="button" class="point-pill-btn active" data-point-idx="0">Point 1</button>
+          <button type="button" class="point-pill-btn" data-point-idx="1">Point 2</button>
+          <button type="button" class="point-pill-btn" data-point-idx="2">Point 3</button>
+          <button type="button" class="point-pill-btn" data-point-idx="3">Point 4</button>
+        </div>
+
+        <div class="slider-group" style="margin-top: 10px;">
+          <div class="slider-label-row">
+            <span class="coord-symbol">Position X</span>
+            <span class="coord-value" id="val-pt-x">-1.80</span>
+          </div>
+          <input type="range" id="slider-pt-x" min="-3.5" max="3.5" step="0.05" value="-1.8">
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <span class="coord-symbol">Position Y</span>
+            <span class="coord-value" id="val-pt-y">1.20</span>
+          </div>
+          <input type="range" id="slider-pt-y" min="-2.4" max="2.4" step="0.05" value="1.2">
+        </div>
+
+        <!-- Divergence Flux Type (Source vs Sink) -->
+        <div id="point-type-div-container">
+          <label class="section-label" style="margin-top: 8px;">Divergence Flux Type</label>
+          <div class="segmented-control" id="div-type-control">
+            <button type="button" class="segment-btn active" data-div-type="source">Source (∇·A &gt; 0)</button>
+            <button type="button" class="segment-btn" data-div-type="sink">Sink (∇·A &lt; 0)</button>
+          </div>
+        </div>
+
+        <!-- Curl Rotation Direction (CCW vs CW) -->
+        <div id="point-type-curl-container" style="display: none;">
+          <label class="section-label" style="margin-top: 8px;">Curl Rotation Direction</label>
+          <div class="segmented-control" id="curl-type-control">
+            <button type="button" class="segment-btn active" data-curl-type="ccw">curl &gt; 0 (CCW ↺)</button>
+            <button type="button" class="segment-btn" data-curl-type="cw">curl &lt; 0 (CW ↻)</button>
+          </div>
+        </div>
+
+        <div class="slider-group" style="margin-top: 8px;">
+          <div class="slider-label-row">
+            <span class="coord-symbol" id="label-pt-strength">Strength Magnitude |q|</span>
+            <span class="coord-value" id="val-pt-strength">2.0</span>
+          </div>
+          <input type="range" id="slider-pt-strength" min="0.5" max="3.5" step="0.1" value="2.0">
+        </div>
+      </section>
+
+      <!-- 4. Visual Overlays -->
       <section class="control-section">
         <label class="section-label">Visual Overlays</label>
         <div class="toggle-grid">
@@ -110,12 +184,33 @@
           </label>
           <label class="checkbox-row">
             <input type="checkbox" id="toggle-surfaces" checked>
-            <span>Surfaces / Cloud / Lattice</span>
+            <span>Surfaces / Contours / Rings</span>
           </label>
           <label class="checkbox-row">
             <input type="checkbox" id="toggle-vectors" checked>
-            <span>Vectors / Streamlines</span>
+            <span>Vectors & Streamlines</span>
           </label>
+        </div>
+      </section>
+
+      <!-- 5. Scientific Calculators & Converters Panel -->
+      <section class="control-section" id="calculator-section">
+        <div class="section-header-row">
+          <label class="section-label">🧮 Scientific Calculator</label>
+          <span class="calc-badge" id="calc-topic-badge">Coordinates</span>
+        </div>
+
+        <!-- Calculator Tabs Container -->
+        <div class="calc-tabs-bar" id="calc-tabs-bar">
+          <button type="button" class="calc-tab-btn active" data-tab="converter">Converter</button>
+          <button type="button" class="calc-tab-btn" data-tab="unit_vectors">Unit Vectors</button>
+          <button type="button" class="calc-tab-btn" data-tab="magnitude">Magnitude</button>
+          <button type="button" class="calc-tab-btn" data-tab="direction">Direction</button>
+        </div>
+
+        <!-- Interactive Calculator Dynamic View -->
+        <div class="calc-view-container" id="calc-view-container">
+          <!-- Dynamic Calculator DOM rendered by UIController -->
         </div>
       </section>
 
