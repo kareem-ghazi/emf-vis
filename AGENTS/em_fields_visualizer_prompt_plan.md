@@ -24,14 +24,19 @@ The application contains **EXACTLY 4 specialized educational topics**, designed 
 
 3. **Divergence ($\nabla \cdot \vec{A}$)**:
    - Visualized as the net outward flow of flux from sources and inward flow to sinks.
-   - Designed to match **Reference Image 1**: deep dark background, dense 2D vector field grid, and **4 controllable points on the 2D Cartesian plane** (Sources with outward radial white arrows and yellow/cyan glow; Sinks with inward radial white arrows and blue convergence).
+   - Designed to match **Reference Image 1**: deep dark background, dense 2D vector field grid, and **4 controllable points on the 2D Cartesian plane** (Sources with outward radial white arrows and yellow/cyan glow; Sinks with inward radial white arrows and blue convergence; Zero-strength points with slate neutral aura).
+   - Locked 2D canvas controls: strictly disables rotation and panning, allowing only mouse wheel zoom for an authentic 2D planar perspective.
+   - High-contrast centered bold point numbers (`1`, `2`, `3`, `4`) inside the middle of each point disk matching P1-P4 selector pills.
+   - Full support for zero-strength solenoidal sources ($|q| = 0.0$ via slider and 3-way toggle), simulating pure eddyless / solenoidal divergence-free flow ($\nabla \cdot \vec{A} = 0$).
    - Animated streaming fluid particles demonstrating continuous flux lines.
-   - Interactive Point Selection Pills (P1, P2, P3, P4) with position sliders ($X, Y$) and Source/Sink strength toggles.
+   - Interactive Point Selection Pills (P1, P2, P3, P4) with position sliders ($X, Y$) and Source / Sink / Zero toggles.
    - Built-in Divergence Calculator calculating the net flux and scalar divergence at any point $(x, y)$.
 
 4. **The Curl ($\nabla \times \vec{A}$)**:
    - Visualized as local rotation, swirl, and vorticity of a vector field.
    - Designed to match **Reference Image 2 (3Blue1Brown Aesthetic)**: deep dark background with fiery red $\to$ orange $\to$ yellow streamlines, **4 controllable vortex centers on the 2D Cartesian plane** (2 counter-clockwise with circulating white arrow loops labeled $\text{curl } \mathbf{F} > 0$, 2 clockwise with circulating white arrow loops labeled $\text{curl } \mathbf{F} < 0$).
+   - Locked 2D top-down canvas controls with zoom-only interaction.
+   - Bold numeric identification sprites (`1`, `2`, `3`, `4`) inside vortex center disks matching V1-V4 selector pills.
    - Animated swirling fluid streamlines circulating around vortex cores.
    - Interactive Vortex Selection Pills (V1, V2, V3, V4) with position sliders ($X, Y$) and Counter-Clockwise (CCW, $\text{curl} > 0$) / Clockwise (CW, $\text{curl} < 0$) circulation toggles.
    - Built-in Curl Calculator calculating the vorticity vector and circulation magnitude at any point $(x, y)$.

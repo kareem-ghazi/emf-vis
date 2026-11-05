@@ -36,9 +36,12 @@ const EPS_SMOOTH = 0.35;
 export function evalField(x, y) {
   let Fx = 0;
   let Fy = 0;
+  let totalActiveQ = 0;
 
   for (let i = 0; i < points.length; i++) {
     const p = points[i];
+    totalActiveQ += Math.abs(p.q);
+    if (Math.abs(p.q) < 0.02) continue;
     const dx = x - p.x;
     const dy = y - p.y;
     const r2 = dx * dx + dy * dy;
@@ -48,8 +51,52 @@ export function evalField(x, y) {
     Fy += factor * dy;
   }
 
+  // Pure solenoidal / eddyless field when all points are set to zero:
+  // div(A) = d(1.2)/dx + d(0)/dy = 0!
+  if (totalActiveQ < 0.05) {
+    Fx = 1.2;
+    Fy = 0.0;
+  }
+
   const mag = Math.sqrt(Fx * Fx + Fy * Fy);
-  return { Fx, Fy, mag };
+  return { Fx, Fy, mag, totalActiveQ };
+}
+
+/**
+ * Creates high-contrast bold number sprite (1, 2, 3, 4) centered inside point disk
+ */
+function createPointNumberSprite(numberStr, isSource, isZero) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+
+  ctx.clearRect(0, 0, 128, 128);
+  ctx.font = '900 84px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // High contrast text: dark for bright yellow source, bright white for sink or slate zero
+  if (isSource) {
+    ctx.fillStyle = '#0f172a';
+  } else if (isZero) {
+    ctx.fillStyle = '#f8fafc';
+  } else {
+    ctx.fillStyle = '#ffffff';
+  }
+  ctx.fillText(numberStr, 64, 68);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  const spriteMat = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false,
+    renderOrder: 99
+  });
+  const sprite = new THREE.Sprite(spriteMat);
+  sprite.scale.set(0.24, 0.24, 1);
+  return sprite;
 }
 
 /**
@@ -94,7 +141,7 @@ function buildScene(params) {
 
   for (let x = -3.8; x <= 3.8; x += stepX) {
     for (let y = -2.6; y <= 2.6; y += stepY) {
-      const { Fx, Fy, mag } = evalField(x, y);
+      const { Fx, Fy, mag, totalActiveQ } = evalField(x, y);
       if (mag > 0.05) {
         const dir = new THREE.Vector3(Fx / mag, Fy / mag, 0);
         const len = Math.min(0.24, Math.max(0.08, mag * 0.12));
@@ -121,14 +168,19 @@ function buildScene(params) {
 
   // 2. Circular Indicator Rings with White Arrows around the 4 Points (Exact match to Image 1)
   points.forEach((p, idx) => {
-    const isSource = p.q > 0;
+    const isZero = Math.abs(p.q) < 0.05;
+    const isSource = !isZero && p.q > 0;
     const ringRadius = 0.55;
     const ringCount = 12;
 
     // Center Core Disk
     const coreGeo = new THREE.CircleGeometry(0.14, 24);
+    let coreColor = 0xfacc15; // Source: yellow
+    if (isZero) coreColor = 0x64748b; // Zero: slate
+    else if (!isSource) coreColor = 0x38bdf8; // Sink: blue
+
     const coreMat = new THREE.MeshBasicMaterial({
-      color: isSource ? 0xfacc15 : 0x38bdf8,
+      color: coreColor,
       transparent: true,
       opacity: 0.95
     });
@@ -138,26 +190,38 @@ function buildScene(params) {
 
     // Glowing core aura ring
     const auraGeo = new THREE.RingGeometry(0.14, 0.26, 32);
+    let auraColor = 0xca8a04;
+    if (isZero) auraColor = 0x334155;
+    else if (!isSource) auraColor = 0x0284c7;
+
     const auraMat = new THREE.MeshBasicMaterial({
-      color: isSource ? 0xca8a04 : 0x0284c7,
+      color: auraColor,
       transparent: true,
-      opacity: 0.45,
+      opacity: isZero ? 0.3 : 0.45,
       side: THREE.DoubleSide
     });
     const auraMesh = new THREE.Mesh(auraGeo, auraMat);
     auraMesh.position.set(p.x, p.y, 0.015);
     ringsGroup.add(auraMesh);
 
+    // Number sprite inside the center of the point
+    const numSprite = createPointNumberSprite(String(idx + 1), isSource, isZero);
+    numSprite.position.set(p.x, p.y, 0.05);
+    ringsGroup.add(numSprite);
+
     // Circular ring boundary wire
     const circleCurve = new THREE.EllipseCurve(p.x, p.y, ringRadius, ringRadius, 0, 2 * Math.PI, false, 0);
     const circlePts = circleCurve.getPoints(48);
     const circleGeo = new THREE.BufferGeometry().setFromPoints(circlePts);
     const circleLine = new THREE.LineLoop(circleGeo, new THREE.LineBasicMaterial({
-      color: 0xffffff,
+      color: isZero ? 0x94a3b8 : 0xffffff,
       transparent: true,
-      opacity: 0.35
+      opacity: isZero ? 0.25 : 0.35
     }));
     ringsGroup.add(circleLine);
+
+    // If strength is zero (q = 0), skip drawing radial arrows since net flux is zero
+    if (isZero) return;
 
     // Circular Array of Radial White Arrows (Outward for Source, Inward for Sink)
     for (let a = 0; a < ringCount; a++) {
@@ -208,14 +272,21 @@ function initParticles() {
   particlePositions = new Float32Array(NUM_PARTICLES * 3);
   particleData = [];
 
-  for (let i = 0; i < NUM_PARTICLES; i++) {
-    // Spawn near one of the sources or randomly in the domain
-    const src = points.find(pt => pt.q > 0) || points[0];
-    const randAngle = Math.random() * 2 * Math.PI;
-    const randR = 0.2 + Math.random() * 1.5;
+  const sources = points.filter(pt => pt.q > 0.05);
 
-    const x = src.x + randR * Math.cos(randAngle);
-    const y = src.y + randR * Math.sin(randAngle);
+  for (let i = 0; i < NUM_PARTICLES; i++) {
+    let x, y;
+    if (sources.length > 0) {
+      const src = sources[Math.floor(Math.random() * sources.length)];
+      const randAngle = Math.random() * 2 * Math.PI;
+      const randR = 0.2 + Math.random() * 1.5;
+      x = src.x + randR * Math.cos(randAngle);
+      y = src.y + randR * Math.sin(randAngle);
+    } else {
+      // Solenoidal flow: uniform distribution across plane
+      x = -3.8 + Math.random() * 7.6;
+      y = -2.6 + Math.random() * 5.2;
+    }
 
     particlePositions[i * 3] = x;
     particlePositions[i * 3 + 1] = y;
@@ -277,13 +348,19 @@ export function update(time, coordSystem, params) {
       const { Fx, Fy, mag } = evalField(p.x, p.y);
 
       if (p.life > p.maxLife || mag < 0.02 || Math.abs(p.x) > 4.2 || Math.abs(p.y) > 3.0) {
-        // Respawn near a positive source
-        const sources = points.filter(pt => pt.q > 0);
-        const spawnCenter = sources.length > 0 ? sources[Math.floor(Math.random() * sources.length)] : points[0];
-        const ang = Math.random() * 2 * Math.PI;
-        const rad = 0.15 + Math.random() * 0.45;
-        p.x = spawnCenter.x + rad * Math.cos(ang);
-        p.y = spawnCenter.y + rad * Math.sin(ang);
+        // Respawn near an active positive source if available; otherwise uniform / left stream
+        const sources = points.filter(pt => pt.q > 0.05);
+        if (sources.length > 0) {
+          const spawnCenter = sources[Math.floor(Math.random() * sources.length)];
+          const ang = Math.random() * 2 * Math.PI;
+          const rad = 0.15 + Math.random() * 0.45;
+          p.x = spawnCenter.x + rad * Math.cos(ang);
+          p.y = spawnCenter.y + rad * Math.sin(ang);
+        } else {
+          // Solenoidal flow: uniform distribution or left intake
+          p.x = -3.8 + Math.random() * 0.4;
+          p.y = -2.5 + Math.random() * 5.0;
+        }
         p.life = 0;
       } else {
         const step = p.speed * dt * 1.5;
@@ -303,24 +380,27 @@ export function update(time, coordSystem, params) {
  */
 export function getFormulaData(coordSystem, params) {
   const currentPts = params.divPoints || points;
-  const numSources = currentPts.filter(p => p.q > 0).length;
-  const numSinks = currentPts.filter(p => p.q < 0).length;
+  const numSources = currentPts.filter(p => p.q > 0.05).length;
+  const numSinks = currentPts.filter(p => p.q < -0.05).length;
+  const numZeros = currentPts.filter(p => Math.abs(p.q) <= 0.05).length;
+  const netFlux = currentPts.reduce((acc, p) => acc + p.q, 0);
 
   return {
     topicTag: 'Divergence',
     topicTitle: 'Divergence (∇·A): Sources (Faucets) & Sinks (Drains)',
     modeBtnText: 'Reset 4-Point Layout',
-    modeDesc: 'Divergence measures the net rate at which flux expands outward from a point. Points with ∇·A > 0 act as sources (faucets spraying flux outward), while points with ∇·A < 0 act as sinks (drains pulling flux inward).',
+    modeDesc: 'Divergence measures the net rate at which flux expands outward from a point. Points with ∇·A > 0 act as sources (faucets spraying flux outward), while points with ∇·A < 0 act as sinks (drains pulling flux inward). Setting source strength to zero produces an eddyless, solenoidal field (∇·A = 0).',
     formulaLatex: `\\nabla \\cdot \\vec{A} = \\frac{\\partial A_x}{\\partial x} + \\frac{\\partial A_y}{\\partial y} = \\lim_{\\Delta V \\to 0} \\frac{1}{\\Delta V} \\oint_{\\partial V} \\vec{A} \\cdot d\\vec{S}`,
     detailTitle: "Gauss's Divergence Law for 4 Interactive Points",
     detailLatex: `\\begin{aligned}
 \\vec{A}(x, y) &= \\sum_{i=1}^4 q_i \\frac{\\vec{r} - \\vec{r}_i}{|\\vec{r} - \\vec{r}_i|^2 + \\epsilon^2} \\\\
 \\nabla \\cdot \\vec{A} &= \\sum_{i=1}^4 q_i \\frac{2\\epsilon^2}{(|\\vec{r} - \\vec{r}_i|^2 + \\epsilon^2)^2} \\\\
-\\text{Net Global Flux} &= \\sum_{i=1}^4 q_i = ${currentPts.reduce((acc, p) => acc + p.q, 0).toFixed(1)} \\text{ units}
+\\text{Net Global Flux} &= \\sum_{i=1}^4 q_i = ${netFlux.toFixed(1)} \\text{ units}
 \\end{aligned}`,
     readout: [
       { label: 'Field Mode', value: '2D Cartesian Divergence (4 Controllable Points)' },
-      { label: 'Active Distribution', value: `${numSources} Sources (∇·A > 0) and ${numSinks} Sinks (∇·A < 0)` },
+      { label: 'Point Distribution', value: `${numSources} Sources (+q), ${numSinks} Sinks (-q), ${numZeros} Zero (q=0)` },
+      { label: 'Solenoidal State', value: Math.abs(netFlux) < 0.05 ? '∇·A = 0 (Eddyless / Solenoidal Flow)' : '∇·A ≠ 0 (Expanding / Compressing)', fullWidth: true },
       { label: 'White Rings (Outward)', value: 'Net Outward Flux / Source (Faucet)', fullWidth: true },
       { label: 'White Rings (Inward)', value: 'Net Inward Flux / Sink (Drain)', fullWidth: true }
     ]

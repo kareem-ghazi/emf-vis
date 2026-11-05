@@ -85,12 +85,17 @@ Key Highlights of this Refinement:
 
 ### 3. Divergence ($\nabla \cdot \vec{A}$) (`topics/divergence.js`)
 - **Image 1 Styling**: Deep dark background, dense 2D vector field grid.
-- **4 Controllable Points**: 2 Sources (q > 0) with outward radial white arrows and luminous yellow/cyan halo; 2 Sinks (q < 0) with inward radial white arrows and blue convergence.
-- **Controls**: Pill selector (P1, P2, P3, P4), position sliders ($X \in [-3.0, 3.0], Y \in [-2.0, 2.0]$), Source/Sink toggle, strength slider.
-- **450 Animated Streamline Particles**: Fluid particles streaming from sources and converging into sinks.
+- **Locked 2D Canvas Controls**: Strictly disables rotate and pan (`controls.enableRotate = false`, `controls.enablePan = false`), allowing mouse wheel zooming only, ensuring an authentic, undistorted top-down 2D planar view.
+- **Point Number Identification**: High-contrast, bold numeric sprites (`1`, `2`, `3`, `4`) rendered directly inside the center core disk of each point, providing immediate identification matching UI selector pills (P1, P2, P3, P4).
+- **4 Controllable Points**: 2 Sources ($q > 0$) with outward radial white arrows and luminous yellow halo; 2 Sinks ($q < 0$) with inward radial white arrows and blue convergence; and Solenoidal Zero-Charge points ($q = 0$) with slate neutral aura and radial arrows suppressed.
+- **Zero-Strength Solenoidal Mode ($q = 0$)**: Slider supports $|q| \in [0.0, 3.5]$ with dedicated `Zero (q = 0)` segmented button. When all points are set to zero, the visualizer simulates pure eddyless, solenoidal fluid flow ($\vec{A} = (1.2, 0)$, $\nabla \cdot \vec{A} = 0$) with smooth laminar streamers.
+- **Controls**: Pill selector (P1, P2, P3, P4), position sliders ($X \in [-3.0, 3.0], Y \in [-2.0, 2.0]$), 3-way Source/Sink/Zero toggle, strength slider ($0.0 - 3.5$).
+- **450 Animated Streamline Particles**: Fluid particles streaming from sources and converging into sinks, or gliding in laminar lines when solenoidal.
 
 ### 4. The Curl ($\nabla \times \vec{A}$) (`topics/curl.js`)
 - **Image 2 Styling (3Blue1Brown Aesthetic)**: Dark background with fiery red outer region $\to$ vibrant orange $\to$ golden streamlines $\to$ cyan central streams.
+- **Locked 2D Canvas Controls**: Top-down 2D canvas controls with zoom-only interaction (`enableRotate = false`, `enablePan = false`).
+- **Vortex Number Identification**: Bold numeric sprites (`1`, `2`, `3`, `4`) inside vortex center disks matching selector pills (V1, V2, V3, V4).
 - **4 Controllable Vortices**: 2 Counter-Clockwise vortices ($\text{curl } \mathbf{F} > 0$) with white loops and 3D labels; 2 Clockwise vortices ($\text{curl } \mathbf{F} < 0$) with white loops and 3D labels. Top header label `Curl (∇×F)`.
 - **Controls**: Pill selector (V1, V2, V3, V4), position sliders ($X \in [-3.0, 3.0], Y \in [-2.0, 2.0]$), CCW/CW circulation toggle, strength slider.
 - **480 Animated Streamline Particles**: Swirling fluid particles tracing vortex circulation lines.

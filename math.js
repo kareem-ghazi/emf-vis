@@ -623,8 +623,11 @@ export function calculateDivergenceAt(pointsData, x, y, eps = 0.35) {
   let divTotal = 0;
   let Fx = 0;
   let Fy = 0;
+  let totalActiveQ = 0;
 
   pointsData.forEach(p => {
+    totalActiveQ += Math.abs(p.q);
+    if (Math.abs(p.q) < 0.01) return;
     const dx = x - p.x;
     const dy = y - p.y;
     const r2 = dx*dx + dy*dy;
@@ -635,6 +638,13 @@ export function calculateDivergenceAt(pointsData, x, y, eps = 0.35) {
     const dDiv = p.q * (2 * eps * eps) / (denom * denom);
     divTotal += dDiv;
   });
+
+  // When all sources/sinks are set to zero (eddyless solenoidal state)
+  if (totalActiveQ < 0.05) {
+    Fx = 1.2;
+    Fy = 0.0;
+    divTotal = 0.0;
+  }
 
   let classification = 'Incompressible / Solenoidal (∇·A ≈ 0)';
   if (divTotal > 0.08) classification = 'Source (Net Outflow / Expansion, ∇·A > 0)';
@@ -686,15 +696,18 @@ export function calculateCurlAt(vorticesData, x, y, eps = 0.35) {
  * Scientific number formatter: formats numbers with clean decimals,
  * switches to scientific notation (e.g. 4.6272e-10) for very small (< 0.0005)
  * or very large (>= 10000) values, and eliminates negative zeros (-0.000).
+ * Never rounds a non-zero number to 0.0000.
  */
 export function formatScientific(num, decimals = 4) {
   if (typeof num !== 'number' || isNaN(num)) return (0).toFixed(decimals);
   if (!isFinite(num)) return num > 0 ? '+∞' : '-∞';
 
-  const absVal = Math.abs(num);
-  if (absVal === 0 || absVal < 1e-15) {
+  // Only exact zero returns 0.0000
+  if (num === 0) {
     return (0).toFixed(decimals);
   }
+
+  const absVal = Math.abs(num);
 
   // Very small or very large -> scientific notation
   if (absVal < 0.0005 || absVal >= 10000) {
@@ -703,8 +716,9 @@ export function formatScientific(num, decimals = 4) {
 
   // Standard fixed decimal
   const str = num.toFixed(decimals);
+  // If toFixed produced '0.0000' because of rounding limit, switch to exponential
   if (parseFloat(str) === 0) {
-    return (0).toFixed(decimals);
+    return num.toExponential(decimals);
   }
   return str;
 }

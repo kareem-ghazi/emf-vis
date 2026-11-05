@@ -255,8 +255,21 @@ export class UIController {
         btn.classList.add('active');
         const type = btn.dataset.divType;
         const curPt = this.state.divPoints[this.state.activeDivPointIdx];
-        const strength = Math.abs(curPt.q) || 2.0;
-        curPt.q = type === 'source' ? strength : -strength;
+        if (type === 'zero') {
+          curPt.q = 0.0;
+          this.dom.sliderPtStrength.value = 0.0;
+          this.dom.valPtStrength.textContent = '0.0';
+        } else if (type === 'source') {
+          const strength = (Math.abs(curPt.q) < 0.05) ? 2.0 : Math.abs(curPt.q);
+          curPt.q = strength;
+          this.dom.sliderPtStrength.value = strength;
+          this.dom.valPtStrength.textContent = strength.toFixed(1);
+        } else if (type === 'sink') {
+          const strength = (Math.abs(curPt.q) < 0.05) ? 2.0 : Math.abs(curPt.q);
+          curPt.q = -strength;
+          this.dom.sliderPtStrength.value = strength;
+          this.dom.valPtStrength.textContent = strength.toFixed(1);
+        }
         this.notify();
         this.renderCalculator();
       });
@@ -282,8 +295,24 @@ export class UIController {
       this.dom.valPtStrength.textContent = val.toFixed(1);
       if (this.state.topic === 'divergence') {
         const pt = this.state.divPoints[this.state.activeDivPointIdx];
-        const sign = Math.sign(pt.q) || 1;
-        pt.q = sign * val;
+        if (val < 0.05) {
+          pt.q = 0.0;
+          this.dom.divTypeBtns.forEach((b) => {
+            b.classList.toggle('active', b.dataset.divType === 'zero');
+          });
+        } else {
+          let sign = Math.sign(pt.q);
+          if (sign === 0) {
+            const activeBtn = Array.from(this.dom.divTypeBtns).find(b => b.classList.contains('active'));
+            sign = (activeBtn && activeBtn.dataset.divType === 'sink') ? -1 : 1;
+          }
+          pt.q = sign * val;
+          this.dom.divTypeBtns.forEach((b) => {
+            if (b.dataset.divType === 'zero') b.classList.remove('active');
+            else if (b.dataset.divType === 'source') b.classList.toggle('active', pt.q > 0);
+            else if (b.dataset.divType === 'sink') b.classList.toggle('active', pt.q < 0);
+          });
+        }
       } else if (this.state.topic === 'curl') {
         const v = this.state.curlVortices[this.state.activeCurlVortexIdx];
         const sign = Math.sign(v.gamma) || 1;
@@ -371,9 +400,13 @@ export class UIController {
       this.dom.sliderPtY.value = p.y;
       this.dom.valPtY.textContent = p.y.toFixed(2);
 
-      const isSource = p.q >= 0;
+      const isZero = Math.abs(p.q) < 0.05;
+      const isSource = !isZero && p.q > 0;
+      const isSink = !isZero && p.q < 0;
       this.dom.divTypeBtns.forEach((b) => {
-        b.classList.toggle('active', (b.dataset.divType === 'source') === isSource);
+        if (b.dataset.divType === 'zero') b.classList.toggle('active', isZero);
+        else if (b.dataset.divType === 'source') b.classList.toggle('active', isSource);
+        else if (b.dataset.divType === 'sink') b.classList.toggle('active', isSink);
       });
       const strength = Math.abs(p.q);
       this.dom.sliderPtStrength.value = strength;

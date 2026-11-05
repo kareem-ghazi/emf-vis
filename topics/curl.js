@@ -88,6 +88,35 @@ function createTextLabelSprite(text, color = '#ffffff') {
 }
 
 /**
+ * Creates bold number sprite (1, 2, 3, 4) centered inside vortex disk
+ */
+function createVortexNumberSprite(numberStr) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+
+  ctx.clearRect(0, 0, 128, 128);
+  ctx.font = '900 84px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(numberStr, 64, 68);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  const spriteMat = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false,
+    renderOrder: 99
+  });
+  const sprite = new THREE.Sprite(spriteMat);
+  sprite.scale.set(0.22, 0.22, 1);
+  return sprite;
+}
+
+/**
  * Uniform Topic Module Contract: init()
  */
 export function init(group, coordSystem, params) {
@@ -181,6 +210,11 @@ function buildScene(params) {
     const coreMesh = new THREE.Mesh(coreGeo, coreMat);
     coreMesh.position.set(v.x, v.y, 0.02);
     ringsGroup.add(coreMesh);
+
+    // Number sprite inside the center of the vortex
+    const numSprite = createVortexNumberSprite(String(v.id));
+    numSprite.position.set(v.x, v.y, 0.05);
+    ringsGroup.add(numSprite);
 
     // Ring boundary wire
     const ringCurve = new THREE.EllipseCurve(v.x, v.y, ringRadius, ringRadius, 0, 2 * Math.PI, false, 0);

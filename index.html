@@ -155,8 +155,9 @@
         <div id="point-type-div-container">
           <label class="section-label" style="margin-top: 8px;">Divergence Flux Type</label>
           <div class="segmented-control" id="div-type-control">
-            <button type="button" class="segment-btn active" data-div-type="source">Source (∇·A &gt; 0)</button>
-            <button type="button" class="segment-btn" data-div-type="sink">Sink (∇·A &lt; 0)</button>
+            <button type="button" class="segment-btn active" data-div-type="source">Source (+q)</button>
+            <button type="button" class="segment-btn" data-div-type="sink">Sink (-q)</button>
+            <button type="button" class="segment-btn" data-div-type="zero">Zero (q = 0)</button>
           </div>
         </div>
 
@@ -174,7 +175,7 @@
             <span class="coord-symbol" id="label-pt-strength">Strength Magnitude |q|</span>
             <span class="coord-value" id="val-pt-strength">2.0</span>
           </div>
-          <input type="range" id="slider-pt-strength" min="0.5" max="3.5" step="0.1" value="2.0">
+          <input type="range" id="slider-pt-strength" min="0.0" max="3.5" step="0.1" value="2.0">
         </div>
       </section>
 
