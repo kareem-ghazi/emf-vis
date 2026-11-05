@@ -109,22 +109,24 @@ class AppController {
   }
 
   resetCamera(topicId = this.currentTopicId) {
-    if (topicId === 'divergence') {
+    if (topicId === 'divergence' || topicId === 'curl') {
       this.camera.up.set(0, 1, 0);
       this.camera.position.set(0, 0, 7.8);
       this.controls.target.set(0, 0, 0);
-      // Divergence: strictly 2D top-down view - disable rotate and pan, allow zoom only
+      // Divergence & Curl: 2D top-down view - disable rotate, allow pan & zoom
       this.controls.enableRotate = false;
-      this.controls.enablePan = false;
+      this.controls.enablePan = true;
       this.controls.enableZoom = true;
-    } else if (topicId === 'curl') {
-      this.camera.up.set(0, 1, 0);
-      this.camera.position.set(0, 0, 7.8);
-      this.controls.target.set(0, 0, 0);
-      // Curl: strictly 2D top-down view - disable rotate and pan, allow zoom only
-      this.controls.enableRotate = false;
-      this.controls.enablePan = false;
-      this.controls.enableZoom = true;
+      this.controls.screenSpacePanning = true;
+      this.controls.mouseButtons = {
+        LEFT: THREE.MOUSE.PAN,
+        MIDDLE: THREE.MOUSE.DOLLY,
+        RIGHT: THREE.MOUSE.PAN
+      };
+      this.controls.touches = {
+        ONE: THREE.TOUCH.PAN,
+        TWO: THREE.TOUCH.DOLLY_PAN
+      };
     } else if (topicId === 'coords') {
       this.camera.up.set(0, 0, 1);
       this.camera.position.set(5.8, 5.8, 4.5);
@@ -132,6 +134,16 @@ class AppController {
       this.controls.enableRotate = true;
       this.controls.enablePan = true;
       this.controls.enableZoom = true;
+      this.controls.screenSpacePanning = true;
+      this.controls.mouseButtons = {
+        LEFT: THREE.MOUSE.ROTATE,
+        MIDDLE: THREE.MOUSE.DOLLY,
+        RIGHT: THREE.MOUSE.PAN
+      };
+      this.controls.touches = {
+        ONE: THREE.TOUCH.ROTATE,
+        TWO: THREE.TOUCH.DOLLY_PAN
+      };
     } else {
       // gradient
       this.camera.up.set(0, 0, 1);
@@ -140,6 +152,16 @@ class AppController {
       this.controls.enableRotate = true;
       this.controls.enablePan = true;
       this.controls.enableZoom = true;
+      this.controls.screenSpacePanning = true;
+      this.controls.mouseButtons = {
+        LEFT: THREE.MOUSE.ROTATE,
+        MIDDLE: THREE.MOUSE.DOLLY,
+        RIGHT: THREE.MOUSE.PAN
+      };
+      this.controls.touches = {
+        ONE: THREE.TOUCH.ROTATE,
+        TWO: THREE.TOUCH.DOLLY_PAN
+      };
     }
     this.controls.update();
   }

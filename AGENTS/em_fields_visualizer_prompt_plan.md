@@ -25,7 +25,7 @@ The application contains **EXACTLY 4 specialized educational topics**, designed 
 3. **Divergence ($\nabla \cdot \vec{A}$)** (`src/topics/divergence.js`):
    - Visualized as the net outward flow of flux from sources and inward flow to sinks.
    - Designed to match **Reference Image 1**: deep dark background, dense 2D vector field grid, and **4 controllable points on the 2D Cartesian plane** (Sources with outward radial white arrows and yellow halo; Sinks with inward radial white arrows and blue convergence; Zero-strength points with slate neutral aura).
-   - Locked 2D canvas controls: strictly disables rotation and panning, allowing only mouse wheel zoom for an authentic 2D planar perspective, with bottom-left navigation hint displaying `Scroll: Zoom`.
+   - 2D planar canvas controls: locked rotation with full planar panning and zoom (`Right Click + Drag: Pan · Scroll: Zoom` on desktop, `Drag: Pan · Pinch: Zoom` on mobile).
    - High-contrast centered bold point numbers (`1`, `2`, `3`, `4`) inside the middle of each point disk using contrasting deep navy on yellow sources and blue sinks, and outlined text on slate zero points.
    - Radial $360^\circ$ sink particle inflow: pulls in particles from all directions radially when sources are zero and sinks are active, with drain absorption and respawning.
    - Full support for zero-strength solenoidal sources ($|q| = 0.0$ via slider and 3-way toggle), simulating pure eddyless / solenoidal divergence-free flow ($\nabla \cdot \vec{A} = 0$).
@@ -36,7 +36,7 @@ The application contains **EXACTLY 4 specialized educational topics**, designed 
 4. **The Curl ($\nabla \times \vec{A}$)** (`src/topics/curl.js`):
    - Visualized as local rotation, swirl, and vorticity of a vector field.
    - Designed to match **Reference Image 2 (3Blue1Brown Aesthetic)**: deep dark background with fiery red $\to$ orange $\to$ yellow streamlines, **4 controllable vortex centers on the 2D Cartesian plane** (2 counter-clockwise, 2 clockwise, with zero-rotation support).
-   - Locked 2D top-down canvas controls with zoom-only interaction (`Scroll: Zoom`).
+   - 2D planar canvas controls: locked rotation with full planar panning and zoom (`Right Click + Drag: Pan · Scroll: Zoom` on desktop, `Drag: Pan · Pinch: Zoom` on mobile).
    - Clean vortex center disks without floating label badges, featuring centered bold numbers matching the divergence color scheme (red CCW, blue CW, slate Zero).
    - Animated swirling fluid streamlines circulating around vortex cores; when all vortices are zero, displays uniform irrotational laminar streamline flow.
    - Interactive Vortex Selection Pills (V1, V2, V3, V4) with position sliders ($X, Y$) and 3-way Counter-Clockwise (CCW, $\text{curl} > 0$) / Clockwise (CW, $\text{curl} < 0$) / Zero ($\text{curl} = 0$) toggles.

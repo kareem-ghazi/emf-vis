@@ -459,11 +459,32 @@ export class UIController {
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeMobileSidebar();
     });
+
+    // Update navigation hint on window resize / orientation change
+    window.addEventListener('resize', () => this.updateNavHint());
   }
 
   notify() {
     if (this.onStateChange) {
       this.onStateChange(this.state);
+    }
+  }
+
+  /**
+   * Updates canvas navigation description hint based on active topic and device type
+   */
+  updateNavHint() {
+    if (!this.dom.canvasNavHint) return;
+    const topic = this.state.topic;
+    const isMobile = window.innerWidth <= 768;
+    if (topic === 'divergence' || topic === 'curl') {
+      this.dom.canvasNavHint.innerHTML = isMobile
+        ? '<span>Drag: Pan</span> · <span>Pinch: Zoom</span>'
+        : '<span>Right Click + Drag: Pan</span> · <span>Scroll: Zoom</span>';
+    } else {
+      this.dom.canvasNavHint.innerHTML = isMobile
+        ? '<span>Drag: Rotate</span> · <span>2-Finger Drag: Pan</span> · <span>Pinch: Zoom</span>'
+        : '<span>Left Click + Drag: Rotate</span> · <span>Right Click + Drag: Pan</span> · <span>Scroll: Zoom</span>';
     }
   }
 
@@ -502,14 +523,8 @@ export class UIController {
       this.updateSliderConfiguration();
     }
 
-    // Canvas navigation hint: divergence & curl allow only Zoom, others allow Rotate & Pan
-    if (this.dom.canvasNavHint) {
-      if (topic === 'divergence' || topic === 'curl') {
-        this.dom.canvasNavHint.innerHTML = '<span>Scroll: Zoom</span>';
-      } else {
-        this.dom.canvasNavHint.innerHTML = '<span>Left Click + Drag: Rotate</span> · <span>Right Click + Drag: Pan</span> · <span>Scroll: Zoom</span>';
-      }
-    }
+    // Canvas navigation hint: divergence & curl allow Pan & Zoom, others allow Rotate, Pan & Zoom
+    this.updateNavHint();
   }
 
   /**

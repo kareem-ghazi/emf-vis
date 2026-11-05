@@ -23,6 +23,13 @@ Key Highlights & Recent Architectural Improvements:
 - **Comprehensive Documentation**: Complete `README.md` and `LICENSE.txt` (MIT License © 2026 Kareem Ghazi).
 - **Custom Vector SVG Favicon**: Sleek Nabla ∇ and circulating flux field icon (`public/favicon.svg` and `favicon.svg`) loaded via `<link rel="icon" type="image/svg+xml" href="./favicon.svg">`, replacing default wireframe browser icon.
 - **Dynamic Concept Tab Title**: Automatically updates the browser document title to match the active concept with em-dash separator (e.g. `emf.vis — The Gradient`, `emf.vis — Coordinate Systems`, `emf.vis — The Divergence`, `emf.vis — The Curl`).
+- **Planar Panning in Divergence & Curl**: Full 2D planar panning support enabled across mouse and touch (`screenSpacePanning = true`, Left/Right click drag and single-finger touch pan in 2D mode, while rotation remains locked to the 2D plane). Canvas navigation hint at the bottom dynamically reflects pan capabilities:
+  - 2D (Divergence & Curl): `Right Click + Drag: Pan · Scroll: Zoom` on desktop; `Drag: Pan · Pinch: Zoom` on touch/mobile.
+  - 3D (Coords & Gradient): `Left Click + Drag: Rotate · Right Click + Drag: Pan · Scroll: Zoom` on desktop; `Drag: Rotate · 2-Finger Drag: Pan · Pinch: Zoom` on touch/mobile.
+- **Uncrammed Floating Mobile Header & UI**:
+  - The HUD on mobile collapses into a compact floating pill badge (`[ Coordinates + ]`, width ~110px) at the top-right, creating over 150px of clean breathing room between it and the `[ ☰ Controls ]` pill at the top-left.
+  - When tapped, the HUD smoothly expands as a centered modal sheet below the top buttons (`top: 56px`), completely eliminating button crowding and overlapping.
+  - Compact centered navigation hint pill at the bottom (`max-width: 88vw`).
 - **Fully Responsive Mobile UI**:
   - Full-screen 3D canvas viewport with touch gesture support (`touch-action: none` on WebGL canvas, `touch-action: manipulation` on page body).
   - Floating glassmorphic `Controls` pill button (`.mobile-floating-btn`) positioned unobtrusively on the top-left of the canvas.

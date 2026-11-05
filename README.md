@@ -1,8 +1,8 @@
 # emf.vis — 3D Electromagnetic Fields & Vector Calculus Visualizer
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE.txt)
-[![Deploy to GitHub Pages](https://github.com/kareem-ghazi/emf-visualizer/actions/workflows/deploy.yml/badge.svg)](https://github.com/kareem-ghazi/emf-visualizer/actions/workflows/deploy.yml)
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-brightgreen)](https://kareem-ghazi.github.io/emf-visualizer/)
+[![Deploy to GitHub Pages](https://github.com/kareem-ghazi/emf-vis/actions/workflows/deploy.yml/badge.svg)](https://github.com/kareem-ghazi/emf-vis/actions/workflows/deploy.yml)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-brightgreen)](https://kareem-ghazi.github.io/emf-vis
 
 **emf.vis** is a real-time, interactive 3D WebGL application designed to demystify electromagnetic fields and vector calculus concepts. Built with modern Vanilla JavaScript, Three.js, and KaTeX, it provides intuitive spatial visualizations, rigorous mathematical formulations, and interactive scientific calculators for coordinate systems, gradients, divergence, and curl.
 
@@ -11,7 +11,7 @@
 ## 🌐 Live Demo
 
 Explore the visualizer live in your browser:  
-👉 **[https://kareem-ghazi.github.io/emf-visualizer/](https://kareem-ghazi.github.io/emf-visualizer/)**
+👉 **[https://kareem-ghazi.github.io/emf-vis/](https://kareem-ghazi.github.io/emf-vis/)**
 
 ---
 
@@ -71,7 +71,7 @@ Explore the visualizer live in your browser:
 ## 🗂️ Project Structure
 
 ```
-emf-visualizer/
+emf-vis/
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml        # Automatic GitHub Pages deployment workflow
@@ -116,8 +116,8 @@ emf-visualizer/
 ### Installation
 1. Clone the repository:
    ```bash
-   git clone https://github.com/kareem-ghazi/emf-visualizer.git
-   cd emf-visualizer
+   git clone https://github.com/kareem-ghazi/emf-vis.git
+   cd emf-vis
    ```
 
 2. Install dependencies:
@@ -154,7 +154,7 @@ npm run preview
 This repository includes an automated GitHub Actions workflow (`.github/workflows/deploy.yml`) that builds and publishes the visualizer to GitHub Pages whenever changes are pushed to the `main` branch.
 
 ### Enabling GitHub Pages in Repository Settings:
-1. Go to your GitHub repository: `https://github.com/kareem-ghazi/emf-visualizer`.
+1. Go to your GitHub repository: `https://github.com/kareem-ghazi/emf-vis`.
 2. Navigate to **Settings** > **Pages**.
 3. Under **Build and deployment** > **Source**, select **GitHub Actions**.
 4. The deployment will automatically run on the next push to `main`.
