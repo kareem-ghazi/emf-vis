@@ -339,8 +339,8 @@ export function update(time, coordSystem, params) {
     let changed = false;
     for (let i = 0; i < 4; i++) {
       if (Math.abs(params.divPoints[i].x - points[i].x) > 0.01 ||
-          Math.abs(params.divPoints[i].y - points[i].y) > 0.01 ||
-          Math.abs(params.divPoints[i].q - points[i].q) > 0.01) {
+        Math.abs(params.divPoints[i].y - points[i].y) > 0.01 ||
+        Math.abs(params.divPoints[i].q - points[i].q) > 0.01) {
         changed = true;
         break;
       }
@@ -441,7 +441,7 @@ export function getFormulaData(coordSystem, params) {
 
   return {
     topicTag: 'Divergence',
-    topicTitle: 'Divergence (∇·A)',
+    topicTitle: 'The Divergence (∇·A)',
     modeBtnText: 'Reset 4-Point Layout',
     modeDesc: 'Divergence measures the net rate of outward flux expansion per unit volume. Points with ∇·A > 0 act as sources, ∇·A < 0 as sinks, and fields with ∇·A = 0 are solenoidal.',
     formulaLatex,

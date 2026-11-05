@@ -1012,9 +1012,12 @@ export class UIController {
         sub = replaceBalancedFn(sub, '\\btan', (inner) => `\\tan\\left(${formatInner(inner)}\\right)`);
         sub = replaceBalancedFn(sub, '\\bln', (inner) => `\\ln\\left(${formatInner(inner)}\\right)`);
         sub = replaceBalancedFn(sub, '\\blog', (inner) => `\\log\\left(${formatInner(inner)}\\right)`);
-        sub = sub.replace(/\brho\b/gi, '\\rho');
-        sub = sub.replace(/\bphi\b/gi, '\\phi');
-        sub = sub.replace(/\btheta\b/gi, '\\theta');
+        sub = sub.replace(/ρ/g, '\\rho');
+        sub = sub.replace(/φ/g, '\\phi');
+        sub = sub.replace(/θ/g, '\\theta');
+        sub = sub.replace(/(?<!\\)\brho\b/gi, '\\rho');
+        sub = sub.replace(/(?<!\\)\bphi\b/gi, '\\phi');
+        sub = sub.replace(/(?<!\\)\btheta\b/gi, '\\theta');
         sub = sub.replace(/\^([a-zA-Z0-9]+)/g, '^{$1}');
         sub = sub.replace(/\*/g, ' \\cdot ');
         return sub;
@@ -1030,9 +1033,12 @@ export class UIController {
       s = replaceBalancedFn(s, '\\btan', (inner) => `\\tan\\left(${formatInner(inner)}\\right)`);
       s = replaceBalancedFn(s, '\\bln', (inner) => `\\ln\\left(${formatInner(inner)}\\right)`);
       s = replaceBalancedFn(s, '\\blog', (inner) => `\\log\\left(${formatInner(inner)}\\right)`);
-      s = s.replace(/\brho\b/gi, '\\rho');
-      s = s.replace(/\bphi\b/gi, '\\phi');
-      s = s.replace(/\btheta\b/gi, '\\theta');
+      s = s.replace(/ρ/g, '\\rho');
+      s = s.replace(/φ/g, '\\phi');
+      s = s.replace(/θ/g, '\\theta');
+      s = s.replace(/(?<!\\)\brho\b/gi, '\\rho');
+      s = s.replace(/(?<!\\)\bphi\b/gi, '\\phi');
+      s = s.replace(/(?<!\\)\btheta\b/gi, '\\theta');
 
       // 2. Format powers and products
       s = s.replace(/\^([a-zA-Z0-9]+)/g, '^{$1}');
@@ -1045,6 +1051,11 @@ export class UIController {
     const evaluateCustomScalar = (raw, u1, u2, u3, coordSys) => {
       if (!raw || !raw.trim()) return 0;
       let s = raw.trim();
+
+      // Convert Greek letters to ascii variable names
+      s = s.replace(/ρ/g, 'rho');
+      s = s.replace(/φ/g, 'phi');
+      s = s.replace(/θ/g, 'theta');
 
       // 1. Convert e^(...) -> exp(...) with balanced parentheses
       s = replaceBalancedFn(s, '\\be\\s*\\^', (inside) => `exp(${inside})`);
@@ -1186,9 +1197,9 @@ export class UIController {
     container.innerHTML = `
       <!-- Coordinate System Segmented Control -->
       <div class="segmented-control" id="calc-grad-coord-control" style="margin-bottom: 8px;">
-        <button type="button" class="segment-btn ${coord === 'cartesian' ? 'active' : ''}" data-grad-coord="cartesian">Cartesian (x,y,z)</button>
-        <button type="button" class="segment-btn ${coord === 'cylindrical' ? 'active' : ''}" data-grad-coord="cylindrical">Cylindrical (ρ,φ,z)</button>
-        <button type="button" class="segment-btn ${coord === 'spherical' ? 'active' : ''}" data-grad-coord="spherical">Spherical (r,θ,φ)</button>
+        <button type="button" class="segment-btn ${coord === 'cartesian' ? 'active' : ''}" data-grad-coord="cartesian">Cartesian <br>(x, y, z)</button>
+        <button type="button" class="segment-btn ${coord === 'cylindrical' ? 'active' : ''}" data-grad-coord="cylindrical">Cylindrical <br>(ρ, φ, z)</button>
+        <button type="button" class="segment-btn ${coord === 'spherical' ? 'active' : ''}" data-grad-coord="spherical">Spherical <br>(r, θ, φ)</button>
       </div>
 
       <div class="calc-result-box" style="margin-bottom: 6px;">
@@ -1361,9 +1372,12 @@ export class UIController {
         sub = replaceBalancedFn(sub, '\\btan', (inner) => `\\tan\\left(${formatInner(inner)}\\right)`);
         sub = replaceBalancedFn(sub, '\\bln', (inner) => `\\ln\\left(${formatInner(inner)}\\right)`);
         sub = replaceBalancedFn(sub, '\\blog', (inner) => `\\log\\left(${formatInner(inner)}\\right)`);
-        sub = sub.replace(/\brho\b/gi, '\\rho');
-        sub = sub.replace(/\bphi\b/gi, '\\phi');
-        sub = sub.replace(/\btheta\b/gi, '\\theta');
+        sub = sub.replace(/ρ/g, '\\rho');
+        sub = sub.replace(/φ/g, '\\phi');
+        sub = sub.replace(/θ/g, '\\theta');
+        sub = sub.replace(/(?<!\\)\brho\b/gi, '\\rho');
+        sub = sub.replace(/(?<!\\)\bphi\b/gi, '\\phi');
+        sub = sub.replace(/(?<!\\)\btheta\b/gi, '\\theta');
         sub = sub.replace(/\^([a-zA-Z0-9]+)/g, '^{$1}');
         sub = sub.replace(/\*/g, ' \\cdot ');
         return sub;
@@ -1378,9 +1392,12 @@ export class UIController {
       s = replaceBalancedFn(s, '\\btan', (inner) => `\\tan\\left(${formatInner(inner)}\\right)`);
       s = replaceBalancedFn(s, '\\bln', (inner) => `\\ln\\left(${formatInner(inner)}\\right)`);
       s = replaceBalancedFn(s, '\\blog', (inner) => `\\log\\left(${formatInner(inner)}\\right)`);
-      s = s.replace(/\brho\b/gi, '\\rho');
-      s = s.replace(/\bphi\b/gi, '\\phi');
-      s = s.replace(/\btheta\b/gi, '\\theta');
+      s = s.replace(/ρ/g, '\\rho');
+      s = s.replace(/φ/g, '\\phi');
+      s = s.replace(/θ/g, '\\theta');
+      s = s.replace(/(?<!\\)\brho\b/gi, '\\rho');
+      s = s.replace(/(?<!\\)\bphi\b/gi, '\\phi');
+      s = s.replace(/(?<!\\)\btheta\b/gi, '\\theta');
       s = s.replace(/\^([a-zA-Z0-9]+)/g, '^{$1}');
       s = s.replace(/\*/g, ' \\cdot ');
       return s;
@@ -1404,6 +1421,11 @@ export class UIController {
     const evaluateComponent = (raw, u1, u2, u3, coordSys) => {
       if (!raw || !raw.trim()) return 0;
       let s = raw.trim();
+
+      // Convert Greek letters to ascii variable names
+      s = s.replace(/ρ/g, 'rho');
+      s = s.replace(/φ/g, 'phi');
+      s = s.replace(/θ/g, 'theta');
 
       // Convert e^(...) -> exp(...) with balanced parentheses
       s = replaceBalancedFn(s, '\\be\\s*\\^', (inside) => `exp(${inside})`);
@@ -1540,12 +1562,26 @@ export class UIController {
     const initialLabels = getLabels(coord);
     const initialRes = computeDivergence(coord, comps, pt);
 
+    // Helper: Selects divergence display color (Source: green, Sink: red, Zero/Solenoidal: amber)
+    const getDivColor = (div) => {
+      if (div > 0.005) return '#4ade80';   // Positive Net Source (green)
+      if (div < -0.005) return '#ef4444';  // Negative Net Sink (red)
+      return '#fbbf24';                   // Zero / Solenoidal (amber)
+    };
+
+    // Helper: Formats divergence value text with sign
+    const formatDivVal = (div) => {
+      if (div > 0.005) return `+${formatScientific(div, 4)} s⁻¹`;
+      if (div < -0.005) return `${formatScientific(div, 4)} s⁻¹`;
+      return `0.0000 s⁻¹`;
+    };
+
     container.innerHTML = `
       <!-- Coordinate System Segmented Control -->
       <div class="segmented-control" id="calc-div-coord-control" style="margin-bottom: 8px;">
-        <button type="button" class="segment-btn ${coord === 'cartesian' ? 'active' : ''}" data-div-coord="cartesian">Cartesian (x,y,z)</button>
-        <button type="button" class="segment-btn ${coord === 'cylindrical' ? 'active' : ''}" data-div-coord="cylindrical">Cylindrical (ρ,φ,z)</button>
-        <button type="button" class="segment-btn ${coord === 'spherical' ? 'active' : ''}" data-div-coord="spherical">Spherical (r,θ,φ)</button>
+        <button type="button" class="segment-btn ${coord === 'cartesian' ? 'active' : ''}" data-div-coord="cartesian">Cartesian <br>(x, y, z)</button>
+        <button type="button" class="segment-btn ${coord === 'cylindrical' ? 'active' : ''}" data-div-coord="cylindrical">Cylindrical <br>(ρ, φ, z)</button>
+        <button type="button" class="segment-btn ${coord === 'spherical' ? 'active' : ''}" data-div-coord="spherical">Spherical <br>(r, θ, φ)</button>
       </div>
 
       <!-- Vector Function Box -->
@@ -1589,7 +1625,7 @@ export class UIController {
         <div class="calc-result-title">Evaluated Divergence & Field Value</div>
         <div class="calc-result-item">
           <span class="lbl">Divergence ∇·A:</span>
-          <span class="val" id="calc-div-res-val" style="color: ${initialRes.div >= 0 ? '#4ade80' : '#ef4444'}; font-size: 13px; font-weight: 700;">${initialRes.div >= 0 ? '+' : ''}${formatScientific(initialRes.div, 4)} s⁻¹</span>
+          <span class="val" id="calc-div-res-val" style="color: ${getDivColor(initialRes.div)}; font-size: 13px; font-weight: 700;">${formatDivVal(initialRes.div)}</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Field Vector A(P):</span>
@@ -1601,7 +1637,7 @@ export class UIController {
         </div>
         <div class="calc-result-item">
           <span class="lbl">Classification:</span>
-          <span class="val" id="calc-div-res-class" style="color: #fbbf24; font-weight: 600;">${initialRes.classification}</span>
+          <span class="val" id="calc-div-res-class" style="color: ${getDivColor(initialRes.div)}; font-weight: 600;">${initialRes.classification}</span>
         </div>
       </div>
     `;
@@ -1626,13 +1662,13 @@ export class UIController {
       const res = computeDivergence(activeCoord, activeComps, activePt);
 
       if (valEl) {
-        valEl.style.color = res.div >= 0 ? '#4ade80' : '#ef4444';
-        valEl.textContent = `${res.div >= 0 ? '+' : ''}${formatScientific(res.div, 4)} s⁻¹`;
+        valEl.style.color = getDivColor(res.div);
+        valEl.textContent = formatDivVal(res.div);
       }
       if (vecEl) vecEl.textContent = `(${formatScientific(res.A1, 3)}, ${formatScientific(res.A2, 3)}, ${formatScientific(res.A3, 3)})`;
       if (magEl) magEl.textContent = formatScientific(res.mag, 4);
       if (classEl) {
-        classEl.style.color = res.div < -0.005 ? '#ef4444' : (res.div > 0.005 ? '#4ade80' : '#fbbf24');
+        classEl.style.color = getDivColor(res.div);
         classEl.textContent = res.classification;
       }
     };
