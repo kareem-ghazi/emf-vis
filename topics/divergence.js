@@ -76,15 +76,24 @@ function createPointNumberSprite(numberStr, isSource, isZero) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // High contrast text: dark for bright yellow source, bright white for sink or slate zero
+  // High contrast text:
+  // - For yellow source: deep dark navy #090e1a
+  // - For light blue sink: deep dark navy #090e1a (maximum contrast against #38bdf8 cyan/blue disk!)
+  // - For slate zero: crisp white with dark outline for maximum legibility
   if (isSource) {
-    ctx.fillStyle = '#0f172a';
+    ctx.fillStyle = '#090e1a';
+    ctx.fillText(numberStr, 64, 68);
   } else if (isZero) {
-    ctx.fillStyle = '#f8fafc';
-  } else {
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = '#090e1a';
+    ctx.strokeText(numberStr, 64, 68);
     ctx.fillStyle = '#ffffff';
+    ctx.fillText(numberStr, 64, 68);
+  } else {
+    // Blue Sink: deep dark navy for maximum contrast against cyan/blue disk!
+    ctx.fillStyle = '#090e1a';
+    ctx.fillText(numberStr, 64, 68);
   }
-  ctx.fillText(numberStr, 64, 68);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
@@ -273,6 +282,7 @@ function initParticles() {
   particleData = [];
 
   const sources = points.filter(pt => pt.q > 0.05);
+  const sinks = points.filter(pt => pt.q < -0.05);
 
   for (let i = 0; i < NUM_PARTICLES; i++) {
     let x, y;
@@ -282,6 +292,13 @@ function initParticles() {
       const randR = 0.2 + Math.random() * 1.5;
       x = src.x + randR * Math.cos(randAngle);
       y = src.y + randR * Math.sin(randAngle);
+    } else if (sinks.length > 0) {
+      // Pulling from all directions around the active sink(s) across 360 degrees
+      const snk = sinks[Math.floor(Math.random() * sinks.length)];
+      const randAngle = Math.random() * 2 * Math.PI;
+      const randR = 0.5 + Math.random() * 3.2;
+      x = Math.max(-3.8, Math.min(3.8, snk.x + randR * Math.cos(randAngle)));
+      y = Math.max(-2.6, Math.min(2.6, snk.y + randR * Math.sin(randAngle)));
     } else {
       // Solenoidal flow: uniform distribution across plane
       x = -3.8 + Math.random() * 7.6;
@@ -340,6 +357,7 @@ export function update(time, coordSystem, params) {
   // Animate fluid particles along field lines
   if (particlesMesh && particlePositions && particleData.length > 0) {
     const dt = 0.016;
+    const sinks = points.filter(pt => pt.q < -0.05);
 
     for (let i = 0; i < NUM_PARTICLES; i++) {
       const p = particleData[i];
@@ -347,8 +365,19 @@ export function update(time, coordSystem, params) {
 
       const { Fx, Fy, mag } = evalField(p.x, p.y);
 
-      if (p.life > p.maxLife || mag < 0.02 || Math.abs(p.x) > 4.2 || Math.abs(p.y) > 3.0) {
-        // Respawn near an active positive source if available; otherwise uniform / left stream
+      // Check if particle reached any sink (absorbed into drain)
+      let reachedSink = false;
+      for (let s = 0; s < sinks.length; s++) {
+        const dx = p.x - sinks[s].x;
+        const dy = p.y - sinks[s].y;
+        if (dx * dx + dy * dy < 0.035) {
+          reachedSink = true;
+          break;
+        }
+      }
+
+      if (reachedSink || p.life > p.maxLife || mag < 0.02 || Math.abs(p.x) > 4.2 || Math.abs(p.y) > 3.0) {
+        // Respawn logic
         const sources = points.filter(pt => pt.q > 0.05);
         if (sources.length > 0) {
           const spawnCenter = sources[Math.floor(Math.random() * sources.length)];
@@ -356,8 +385,15 @@ export function update(time, coordSystem, params) {
           const rad = 0.15 + Math.random() * 0.45;
           p.x = spawnCenter.x + rad * Math.cos(ang);
           p.y = spawnCenter.y + rad * Math.sin(ang);
+        } else if (sinks.length > 0) {
+          // Pull from all directions radially (full 360 degrees) around the sink(s)!
+          const snk = sinks[Math.floor(Math.random() * sinks.length)];
+          const ang = Math.random() * 2 * Math.PI;
+          const rad = 1.0 + Math.random() * 2.8;
+          p.x = Math.max(-3.8, Math.min(3.8, snk.x + rad * Math.cos(ang)));
+          p.y = Math.max(-2.6, Math.min(2.6, snk.y + rad * Math.sin(ang)));
         } else {
-          // Solenoidal flow: uniform distribution or left intake
+          // Pure solenoidal flow: uniform distribution or left intake
           p.x = -3.8 + Math.random() * 0.4;
           p.y = -2.5 + Math.random() * 5.0;
         }
@@ -377,6 +413,10 @@ export function update(time, coordSystem, params) {
 
 /**
  * Uniform Topic Module Contract: getFormulaData()
+ * HUD contains:
+ * 1. Mathematical formulation for the three different coordinate systems (Cartesian, Cylindrical, Spherical)
+ * 2. Solenoidal state
+ * 3. Point distribution
  */
 export function getFormulaData(coordSystem, params) {
   const currentPts = params.divPoints || points;
@@ -385,24 +425,32 @@ export function getFormulaData(coordSystem, params) {
   const numZeros = currentPts.filter(p => Math.abs(p.q) <= 0.05).length;
   const netFlux = currentPts.reduce((acc, p) => acc + p.q, 0);
 
+  // Active mathematical formulation for the THREE coordinate systems
+  const formulaLatex = `\\begin{aligned}
+\\nabla \\cdot \\vec{A} &= \\frac{\\partial A_x}{\\partial x} + \\frac{\\partial A_y}{\\partial y} + \\frac{\\partial A_z}{\\partial z} \\\\[8pt]
+\\nabla \\cdot \\vec{A} &= \\frac{1}{\\rho}\\frac{\\partial}{\\partial \\rho}(\\rho A_\\rho) + \\frac{1}{\\rho}\\frac{\\partial A_\\phi}{\\partial \\phi} + \\frac{\\partial A_z}{\\partial z} \\\\[8pt]
+\\nabla \\cdot \\vec{A} &= \\frac{1}{r^2}\\frac{\\partial}{\\partial r}(r^2 A_r) + \\frac{1}{r\\sin\\theta}\\frac{\\partial}{\\partial \\theta}(\\sin\\theta A_\\theta) + \\frac{1}{r\\sin\\theta}\\frac{\\partial A_\\phi}{\\partial \\phi}
+\\end{aligned}`;
+
+  const isSolenoidal = Math.abs(netFlux) < 0.05;
+  const solenoidalValue = isSolenoidal
+    ? '∇·A = 0 (Solenoidal / Eddyless Flow)'
+    : `∇·A ≠ 0 (Net Flux: ${netFlux > 0 ? '+' : ''}${netFlux.toFixed(1)})`;
+
+  const pointDistValue = `${numSources} Sources (+q), ${numSinks} Sinks (-q), ${numZeros} Zero (q=0)`;
+
   return {
     topicTag: 'Divergence',
-    topicTitle: 'Divergence (∇·A): Sources (Faucets) & Sinks (Drains)',
+    topicTitle: 'Divergence (∇·A)',
     modeBtnText: 'Reset 4-Point Layout',
-    modeDesc: 'Divergence measures the net rate at which flux expands outward from a point. Points with ∇·A > 0 act as sources (faucets spraying flux outward), while points with ∇·A < 0 act as sinks (drains pulling flux inward). Setting source strength to zero produces an eddyless, solenoidal field (∇·A = 0).',
-    formulaLatex: `\\nabla \\cdot \\vec{A} = \\frac{\\partial A_x}{\\partial x} + \\frac{\\partial A_y}{\\partial y} = \\lim_{\\Delta V \\to 0} \\frac{1}{\\Delta V} \\oint_{\\partial V} \\vec{A} \\cdot d\\vec{S}`,
-    detailTitle: "Gauss's Divergence Law for 4 Interactive Points",
-    detailLatex: `\\begin{aligned}
-\\vec{A}(x, y) &= \\sum_{i=1}^4 q_i \\frac{\\vec{r} - \\vec{r}_i}{|\\vec{r} - \\vec{r}_i|^2 + \\epsilon^2} \\\\
-\\nabla \\cdot \\vec{A} &= \\sum_{i=1}^4 q_i \\frac{2\\epsilon^2}{(|\\vec{r} - \\vec{r}_i|^2 + \\epsilon^2)^2} \\\\
-\\text{Net Global Flux} &= \\sum_{i=1}^4 q_i = ${netFlux.toFixed(1)} \\text{ units}
-\\end{aligned}`,
+    modeDesc: 'Divergence measures the net rate of outward flux expansion per unit volume. Points with ∇·A > 0 act as sources, ∇·A < 0 as sinks, and fields with ∇·A = 0 are solenoidal.',
+    formulaLatex,
+    probeSubtitle: 'Divergence State & Point Distribution',
+    detailTitle: '',
+    detailLatex: '', // Hides redundant detail box
     readout: [
-      { label: 'Field Mode', value: '2D Cartesian Divergence (4 Controllable Points)' },
-      { label: 'Point Distribution', value: `${numSources} Sources (+q), ${numSinks} Sinks (-q), ${numZeros} Zero (q=0)` },
-      { label: 'Solenoidal State', value: Math.abs(netFlux) < 0.05 ? '∇·A = 0 (Eddyless / Solenoidal Flow)' : '∇·A ≠ 0 (Expanding / Compressing)', fullWidth: true },
-      { label: 'White Rings (Outward)', value: 'Net Outward Flux / Source (Faucet)', fullWidth: true },
-      { label: 'White Rings (Inward)', value: 'Net Inward Flux / Sink (Drain)', fullWidth: true }
+      { label: 'Solenoidal State', value: solenoidalValue },
+      { label: 'Point Distribution', value: pointDistValue }
     ]
   };
 }

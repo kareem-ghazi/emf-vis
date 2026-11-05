@@ -90,7 +90,7 @@ function createTextLabelSprite(text, color = '#ffffff') {
 /**
  * Creates bold number sprite (1, 2, 3, 4) centered inside vortex disk
  */
-function createVortexNumberSprite(numberStr) {
+function createVortexNumberSprite(numberStr, isCCW) {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
   canvas.height = 128;
@@ -100,7 +100,8 @@ function createVortexNumberSprite(numberStr) {
   ctx.font = '900 84px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#ffffff';
+  // Red CCW vortices: crisp white; Blue CW vortices: high-contrast dark navy #090e1a
+  ctx.fillStyle = isCCW ? '#ffffff' : '#090e1a';
   ctx.fillText(numberStr, 64, 68);
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -212,7 +213,7 @@ function buildScene(params) {
     ringsGroup.add(coreMesh);
 
     // Number sprite inside the center of the vortex
-    const numSprite = createVortexNumberSprite(String(v.id));
+    const numSprite = createVortexNumberSprite(String(v.id), isCCW);
     numSprite.position.set(v.x, v.y, 0.05);
     ringsGroup.add(numSprite);
 

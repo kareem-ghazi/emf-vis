@@ -90,7 +90,8 @@ export class UIController {
       probeReadout: document.getElementById('probe-readout'),
       topicDetailSection: document.getElementById('topic-detail-section'),
       topicDetailTitle: document.getElementById('topic-detail-title'),
-      katexDetail: document.getElementById('katex-detail')
+      katexDetail: document.getElementById('katex-detail'),
+      canvasNavHint: document.getElementById('canvas-nav-hint')
     };
 
     // State
@@ -135,7 +136,18 @@ export class UIController {
       gradCustomExpr: '3.5 * exp(-(x^2 + y^2) / 3)',
       gradPoint: [1.0, 1.0, 0.0],
 
-      divEvalPoint: [0.0, 0.0],
+      divCoord: 'cartesian',
+      divComponents: {
+        cartesian: ['x^2', '2xy', '-z^2'],
+        cylindrical: ['rho*sin(phi)', 'rho^2', 'z'],
+        spherical: ['r^2', '0', '0']
+      },
+      divPoint: {
+        cartesian: [1.0, 2.0, 3.0],
+        cylindrical: [2.0, 90.0, 1.0],
+        spherical: [3.0, 45.0, 60.0]
+      },
+
       curlEvalPoint: [0.0, 0.0]
     };
 
@@ -373,7 +385,7 @@ export class UIController {
     this.dom.multiPointsControlsSection.style.display = (topic === 'divergence' || topic === 'curl') ? 'block' : 'none';
 
     if (topic === 'divergence') {
-      this.dom.multiPointsTitle.textContent = '4 Divergence Points (Image 1)';
+      this.dom.multiPointsTitle.textContent = 'Points';
       this.dom.pointTypeDivContainer.style.display = 'block';
       this.dom.pointTypeCurlContainer.style.display = 'none';
       this.dom.labelPtStrength.textContent = 'Source Strength |q|';
@@ -386,6 +398,15 @@ export class UIController {
       this.syncMultiPointsSliders();
     } else if (topic === 'coords') {
       this.updateSliderConfiguration();
+    }
+
+    // Canvas navigation hint: divergence allows only Zoom, others allow Rotate & Pan
+    if (this.dom.canvasNavHint) {
+      if (topic === 'divergence') {
+        this.dom.canvasNavHint.innerHTML = '<span>Scroll: Zoom</span>';
+      } else {
+        this.dom.canvasNavHint.innerHTML = '<span>Left Click + Drag: Rotate</span> · <span>Right Click + Drag: Pan</span> · <span>Scroll: Zoom</span>';
+      }
     }
   }
 
@@ -1154,66 +1175,396 @@ export class UIController {
     });
   }
 
-  // 6. Divergence Calculator
+  // 6. Divergence Calculator (Custom Vector Function in Cartesian, Cylindrical, Spherical)
   renderDivergenceCalculator(container) {
-    const pt = this.calcState.divEvalPoint;
-    const res = calculateDivergenceAt(this.state.divPoints, pt[0], pt[1]);
+    const coord = this.calcState.divCoord;
+    const comps = this.calcState.divComponents[coord];
+    const pt = this.calcState.divPoint[coord];
+
+    // Helper: Scans balanced parentheses starting at openIdx
+    const extractBalanced = (str, openIdx) => {
+      let depth = 1;
+      let i = openIdx + 1;
+      while (i < str.length && depth > 0) {
+        if (str[i] === '(') depth++;
+        else if (str[i] === ')') depth--;
+        i++;
+      }
+      if (depth === 0) return { inside: str.slice(openIdx + 1, i - 1), endIdx: i };
+      return null;
+    };
+
+    // Helper: Replaces functions with balanced parens
+    const replaceBalancedFn = (str, prefix, callback) => {
+      let out = '';
+      let lastIdx = 0;
+      const regex = new RegExp(prefix + '\\s*\\(', 'gi');
+      let match;
+      while ((match = regex.exec(str)) !== null) {
+        out += str.slice(lastIdx, match.index);
+        const openIdx = match.index + match[0].length - 1;
+        const res = extractBalanced(str, openIdx);
+        if (res) {
+          out += callback(res.inside);
+          lastIdx = res.endIdx;
+          regex.lastIndex = res.endIdx;
+        } else {
+          out += str.slice(match.index);
+          lastIdx = str.length;
+          break;
+        }
+      }
+      out += str.slice(lastIdx);
+      return out;
+    };
+
+    // Helper: Formats single component expression to LaTeX representation
+    const formatComponentToLatex = (raw) => {
+      if (!raw || !raw.trim()) return '0';
+      let s = raw.trim();
+
+      const formatInner = (str) => {
+        let sub = str.trim();
+        sub = replaceBalancedFn(sub, '\\bexp', (inner) => `e^{${formatInner(inner)}}`);
+        sub = replaceBalancedFn(sub, '\\be\\s*\\^', (inner) => `e^{${formatInner(inner)}}`);
+        sub = replaceBalancedFn(sub, '\\bsqrt', (inner) => `\\sqrt{${formatInner(inner)}}`);
+        sub = replaceBalancedFn(sub, '\\babs', (inner) => `\\left|${formatInner(inner)}\\right|`);
+        sub = replaceBalancedFn(sub, '\\bsin', (inner) => `\\sin\\left(${formatInner(inner)}\\right)`);
+        sub = replaceBalancedFn(sub, '\\bcos', (inner) => `\\cos\\left(${formatInner(inner)}\\right)`);
+        sub = replaceBalancedFn(sub, '\\btan', (inner) => `\\tan\\left(${formatInner(inner)}\\right)`);
+        sub = replaceBalancedFn(sub, '\\bln', (inner) => `\\ln\\left(${formatInner(inner)}\\right)`);
+        sub = replaceBalancedFn(sub, '\\blog', (inner) => `\\log\\left(${formatInner(inner)}\\right)`);
+        sub = sub.replace(/\brho\b/gi, '\\rho');
+        sub = sub.replace(/\bphi\b/gi, '\\phi');
+        sub = sub.replace(/\btheta\b/gi, '\\theta');
+        sub = sub.replace(/\^([a-zA-Z0-9]+)/g, '^{$1}');
+        sub = sub.replace(/\*/g, ' \\cdot ');
+        return sub;
+      };
+
+      s = replaceBalancedFn(s, '\\bexp', (inner) => `e^{${formatInner(inner)}}`);
+      s = replaceBalancedFn(s, '\\be\\s*\\^', (inner) => `e^{${formatInner(inner)}}`);
+      s = replaceBalancedFn(s, '\\bsqrt', (inner) => `\\sqrt{${formatInner(inner)}}`);
+      s = replaceBalancedFn(s, '\\babs', (inner) => `\\left|${formatInner(inner)}\\right|`);
+      s = replaceBalancedFn(s, '\\bsin', (inner) => `\\sin\\left(${formatInner(inner)}\\right)`);
+      s = replaceBalancedFn(s, '\\bcos', (inner) => `\\cos\\left(${formatInner(inner)}\\right)`);
+      s = replaceBalancedFn(s, '\\btan', (inner) => `\\tan\\left(${formatInner(inner)}\\right)`);
+      s = replaceBalancedFn(s, '\\bln', (inner) => `\\ln\\left(${formatInner(inner)}\\right)`);
+      s = replaceBalancedFn(s, '\\blog', (inner) => `\\log\\left(${formatInner(inner)}\\right)`);
+      s = s.replace(/\brho\b/gi, '\\rho');
+      s = s.replace(/\bphi\b/gi, '\\phi');
+      s = s.replace(/\btheta\b/gi, '\\theta');
+      s = s.replace(/\^([a-zA-Z0-9]+)/g, '^{$1}');
+      s = s.replace(/\*/g, ' \\cdot ');
+      return s;
+    };
+
+    // Helper: Formats full vector function into LaTeX preview
+    const formatVectorLatex = (coordSys, c1, c2, c3) => {
+      const l1 = formatComponentToLatex(c1);
+      const l2 = formatComponentToLatex(c2);
+      const l3 = formatComponentToLatex(c3);
+      if (coordSys === 'cartesian') {
+        return `\\vec{A}(x,y,z) = (${l1})\\hat{a}_x + (${l2})\\hat{a}_y + (${l3})\\hat{a}_z`;
+      } else if (coordSys === 'cylindrical') {
+        return `\\vec{A}(\\rho,\\phi,z) = (${l1})\\hat{a}_\\rho + (${l2})\\hat{a}_\\phi + (${l3})\\hat{a}_z`;
+      } else {
+        return `\\vec{A}(r,\\theta,\\phi) = (${l1})\\hat{a}_r + (${l2})\\hat{a}_\\theta + (${l3})\\hat{a}_\\phi`;
+      }
+    };
+
+    // Helper: Evaluates a single scalar component safely
+    const evaluateComponent = (raw, u1, u2, u3, coordSys) => {
+      if (!raw || !raw.trim()) return 0;
+      let s = raw.trim();
+
+      // Convert e^(...) -> exp(...) with balanced parentheses
+      s = replaceBalancedFn(s, '\\be\\s*\\^', (inside) => `exp(${inside})`);
+      s = s.replace(/\be\s*\^\s*([a-zA-Z0-9_]+)/gi, 'exp($1)');
+
+      // Unary minus before exponentiation: -z^2 -> (0 - 1) * z^2
+      s = s.replace(/(^|[+\-*/(,])\s*-\s*([a-zA-Z_]\w*|\d+(?:\.\d+)?)\s*\^/g, '$1 (0 - 1) * $2^');
+
+      s = s.replace(/\^/g, '**');
+      s = s.replace(/(\d)\s*([a-zA-Z_]\w*|\()/g, '$1*$2');
+      s = s.replace(/(\*\*)\s*(\d+)\s*([a-zA-Z_(])/g, '$1$2*$3');
+      s = s.replace(/\)\s*(\(|\d|[a-zA-Z_])/g, ')*$1');
+      s = s.replace(/\b([xyzXYZ]{2,})\b/g, (match) => match.split('').join('*'));
+      s = s.replace(/\b([a-zA-Z_]\w*)\s*\(/g, (match, name) => {
+        const fnNames = ['sin', 'cos', 'tan', 'exp', 'log', 'ln', 'sqrt', 'abs', 'sinh', 'cosh', 'tanh', 'asin', 'acos', 'atan'];
+        if (fnNames.includes(name.toLowerCase())) return `${name.toLowerCase()}(`;
+        return `${name}*(`;
+      });
+      s = s.replace(/\b([xyzXYZ])\s+([xyzXYZ])\b/g, '$1*$2');
+
+      try {
+        const fn = new Function('u1', 'u2', 'u3', `
+          const { sin, cos, tan, exp, log, sqrt, abs, PI } = Math;
+          const ln = log, pi = PI, Pi = PI, e = Math.E, E = Math.E;
+          let x = u1, y = u2, z = u3;
+          let rho = u1, phi = u2;
+          let r = u1, theta = u2;
+          if ('${coordSys}' === 'cylindrical') {
+            rho = u1; phi = u2; z = u3;
+            x = rho * Math.cos(phi); y = rho * Math.sin(phi);
+          } else if ('${coordSys}' === 'spherical') {
+            r = u1; theta = u2; phi = u3;
+            x = r * Math.sin(theta) * Math.cos(phi);
+            y = r * Math.sin(theta) * Math.sin(phi);
+            z = r * Math.cos(theta);
+            rho = r * Math.sin(theta);
+          }
+          const X = x, Y = y, Z = z, RHO = rho, Rho = rho, PHI = phi, Phi = phi, R = r, THETA = theta, Theta = theta;
+          const Sin = sin, Cos = cos, Tan = tan, Exp = exp, Log = log, Ln = ln, Sqrt = sqrt, Abs = abs;
+          try {
+            const val = Number(${s});
+            return (typeof val === 'number' && !isNaN(val) && isFinite(val)) ? val : 0;
+          } catch(e) { return 0; }
+        `);
+        return fn(u1, u2, u3);
+      } catch (err) {
+        return 0;
+      }
+    };
+
+    // Helper: Calculates divergence analytically/numerically in active coordinate system
+    const computeDivergence = (coordSys, cList, pList, eps = 1e-5) => {
+      let u1 = pList[0];
+      let u2 = pList[1];
+      let u3 = pList[2];
+
+      if (coordSys === 'cylindrical') {
+        u2 = (pList[1] * Math.PI) / 180; // phi in radians
+      } else if (coordSys === 'spherical') {
+        u2 = (pList[1] * Math.PI) / 180; // theta in radians
+        u3 = (pList[2] * Math.PI) / 180; // phi in radians
+      }
+
+      const A1 = evaluateComponent(cList[0], u1, u2, u3, coordSys);
+      const A2 = evaluateComponent(cList[1], u1, u2, u3, coordSys);
+      const A3 = evaluateComponent(cList[2], u1, u2, u3, coordSys);
+      const mag = Math.sqrt(A1 * A1 + A2 * A2 + A3 * A3);
+
+      let div = 0;
+      if (coordSys === 'cartesian') {
+        const dAx_dx = (evaluateComponent(cList[0], u1 + eps, u2, u3, coordSys) - evaluateComponent(cList[0], u1 - eps, u2, u3, coordSys)) / (2 * eps);
+        const dAy_dy = (evaluateComponent(cList[1], u1, u2 + eps, u3, coordSys) - evaluateComponent(cList[1], u1, u2 - eps, u3, coordSys)) / (2 * eps);
+        const dAz_dz = (evaluateComponent(cList[2], u1, u2, u3 + eps, coordSys) - evaluateComponent(cList[2], u1, u2, u3 - eps, coordSys)) / (2 * eps);
+        div = dAx_dx + dAy_dy + dAz_dz;
+      } else if (coordSys === 'cylindrical') {
+        const rho = Math.max(1e-4, u1);
+        const fRhoPlus = (rho + eps) * evaluateComponent(cList[0], rho + eps, u2, u3, coordSys);
+        const fRhoMinus = (rho - eps) * evaluateComponent(cList[0], rho - eps, u2, u3, coordSys);
+        const d_rhoArho_drho = (fRhoPlus - fRhoMinus) / (2 * eps);
+
+        const dAphi_dphi = (evaluateComponent(cList[1], u1, u2 + eps, u3, coordSys) - evaluateComponent(cList[1], u1, u2 - eps, u3, coordSys)) / (2 * eps);
+        const dAz_dz = (evaluateComponent(cList[2], u1, u2, u3 + eps, coordSys) - evaluateComponent(cList[2], u1, u2, u3 - eps, coordSys)) / (2 * eps);
+        div = (1 / rho) * d_rhoArho_drho + (1 / rho) * dAphi_dphi + dAz_dz;
+      } else if (coordSys === 'spherical') {
+        const r = Math.max(1e-4, u1);
+        const theta = u2;
+        const sinTheta = Math.max(1e-4, Math.abs(Math.sin(theta)));
+
+        const fRPlus = Math.pow(r + eps, 2) * evaluateComponent(cList[0], r + eps, u2, u3, coordSys);
+        const fRMinus = Math.pow(r - eps, 2) * evaluateComponent(cList[0], r - eps, u2, u3, coordSys);
+        const d_r2Ar_dr = (fRPlus - fRMinus) / (2 * eps);
+
+        const fThetaPlus = Math.sin(theta + eps) * evaluateComponent(cList[1], u1, theta + eps, u3, coordSys);
+        const fThetaMinus = Math.sin(theta - eps) * evaluateComponent(cList[1], u1, theta - eps, u3, coordSys);
+        const d_sinThetaAtheta_dtheta = (fThetaPlus - fThetaMinus) / (2 * eps);
+
+        const dAphi_dphi = (evaluateComponent(cList[2], u1, u2, u3 + eps, coordSys) - evaluateComponent(cList[2], u1, u2, u3 - eps, coordSys)) / (2 * eps);
+        div = (1 / (r * r)) * d_r2Ar_dr + (1 / (r * sinTheta)) * d_sinThetaAtheta_dtheta + (1 / (r * sinTheta)) * dAphi_dphi;
+      }
+
+      let classification = 'Solenoidal (∇·A = 0)';
+      if (div > 0.005) classification = 'Net Source (∇·A > 0)';
+      else if (div < -0.005) classification = 'Net Sink (∇·A < 0)';
+
+      return { A1, A2, A3, mag, div, classification };
+    };
+
+    // Dynamic labels and units based on coordinate system
+    const getLabels = (coordSys) => {
+      if (coordSys === 'cartesian') {
+        return {
+          c1: 'A_x', c2: 'A_y', c3: 'A_z',
+          p1Sym: 'x', p1Unit: '(m)',
+          p2Sym: 'y', p2Unit: '(m)',
+          p3Sym: 'z', p3Unit: '(m)'
+        };
+      } else if (coordSys === 'cylindrical') {
+        return {
+          c1: 'A_ρ', c2: 'A_φ', c3: 'A_z',
+          p1Sym: 'ρ', p1Unit: '(m)',
+          p2Sym: 'φ', p2Unit: '(°)',
+          p3Sym: 'z', p3Unit: '(m)'
+        };
+      } else {
+        return {
+          c1: 'A_r', c2: 'A_θ', c3: 'A_φ',
+          p1Sym: 'r', p1Unit: '(m)',
+          p2Sym: 'θ', p2Unit: '(°)',
+          p3Sym: 'φ', p3Unit: '(°)'
+        };
+      }
+    };
+
+    const initialLabels = getLabels(coord);
+    const initialRes = computeDivergence(coord, comps, pt);
 
     container.innerHTML = `
-      <div class="calc-input-row two-col" style="margin-bottom: 8px;">
+      <!-- Coordinate System Segmented Control -->
+      <label class="section-label" style="margin-bottom: 6px;">Coordinate System</label>
+      <div class="segmented-control" id="calc-div-coord-control" style="margin-bottom: 8px;">
+        <button type="button" class="segment-btn ${coord === 'cartesian' ? 'active' : ''}" data-div-coord="cartesian">Cartesian (x,y,z)</button>
+        <button type="button" class="segment-btn ${coord === 'cylindrical' ? 'active' : ''}" data-div-coord="cylindrical">Cylindrical (ρ,φ,z)</button>
+        <button type="button" class="segment-btn ${coord === 'spherical' ? 'active' : ''}" data-div-coord="spherical">Spherical (r,θ,φ)</button>
+      </div>
+
+      <!-- Vector Function Box -->
+      <div class="calc-result-box" style="margin-bottom: 6px;">
+        <div class="calc-result-title">Vector Function Components</div>
+        <div class="calc-input-row" style="margin-bottom: 4px;">
+          <div class="calc-input-box">
+            <span class="calc-input-label" id="calc-div-c1-label">${initialLabels.c1}</span>
+            <input type="text" class="calc-input-field" id="calc-div-c1" value="${comps[0]}" style="font-size: 12px; font-weight: 600; color: #38bdf8;">
+          </div>
+          <div class="calc-input-box">
+            <span class="calc-input-label" id="calc-div-c2-label">${initialLabels.c2}</span>
+            <input type="text" class="calc-input-field" id="calc-div-c2" value="${comps[1]}" style="font-size: 12px; font-weight: 600; color: #38bdf8;">
+          </div>
+          <div class="calc-input-box">
+            <span class="calc-input-label" id="calc-div-c3-label">${initialLabels.c3}</span>
+            <input type="text" class="calc-input-field" id="calc-div-c3" value="${comps[2]}" style="font-size: 12px; font-weight: 600; color: #38bdf8;">
+          </div>
+        </div>
+        <div id="calc-div-latex-display" class="math-display" style="padding: 6px 10px; font-size: 13px; text-align: center; min-height: 32px; background: rgba(10, 14, 22, 0.75);"></div>
+      </div>
+
+      <!-- Evaluation Point Inputs -->
+      <div class="calc-input-row">
         <div class="calc-input-box">
-          <span class="calc-input-label">Test Point X</span>
-          <input type="number" step="0.1" class="calc-input-field" id="calc-div-x" value="${pt[0]}">
+          <span class="calc-input-label" id="calc-div-p1-label"><span class="calc-sym">${initialLabels.p1Sym}</span> <span class="calc-unit">${initialLabels.p1Unit}</span></span>
+          <input type="number" step="0.1" class="calc-input-field" id="calc-div-p1" value="${pt[0]}">
         </div>
         <div class="calc-input-box">
-          <span class="calc-input-label">Test Point Y</span>
-          <input type="number" step="0.1" class="calc-input-field" id="calc-div-y" value="${pt[1]}">
+          <span class="calc-input-label" id="calc-div-p2-label"><span class="calc-sym">${initialLabels.p2Sym}</span> <span class="calc-unit">${initialLabels.p2Unit}</span></span>
+          <input type="number" step="0.1" class="calc-input-field" id="calc-div-p2" value="${pt[1]}">
+        </div>
+        <div class="calc-input-box">
+          <span class="calc-input-label" id="calc-div-p3-label"><span class="calc-sym">${initialLabels.p3Sym}</span> <span class="calc-unit">${initialLabels.p3Unit}</span></span>
+          <input type="number" step="0.1" class="calc-input-field" id="calc-div-p3" value="${pt[2]}">
         </div>
       </div>
 
-      <div class="calc-result-box">
-        <div class="calc-result-title">Divergence of Active 4-Point Field (Image 1)</div>
+      <!-- Evaluated Divergence Results Box -->
+      <div class="calc-result-box" style="margin-top: 8px;">
+        <div class="calc-result-title">Evaluated Divergence & Field Value</div>
         <div class="calc-result-item">
-          <span class="lbl">Field Vector A(x, y):</span>
-          <span class="val" id="calc-div-field">(${formatScientific(res.field.Fx, 3)}, ${formatScientific(res.field.Fy, 3)})</span>
+          <span class="lbl">Divergence ∇·A:</span>
+          <span class="val" id="calc-div-res-val" style="color: ${initialRes.div >= 0 ? '#4ade80' : '#60a5fa'}; font-size: 13px; font-weight: 700;">${initialRes.div >= 0 ? '+' : ''}${formatScientific(initialRes.div, 4)} s⁻¹</span>
+        </div>
+        <div class="calc-result-item">
+          <span class="lbl">Field Vector A(P):</span>
+          <span class="val" id="calc-div-res-vec">(${formatScientific(initialRes.A1, 3)}, ${formatScientific(initialRes.A2, 3)}, ${formatScientific(initialRes.A3, 3)})</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Field Magnitude |A|:</span>
-          <span class="val" id="calc-div-mag">${formatScientific(res.fieldMagnitude, 3)}</span>
-        </div>
-        <div class="calc-result-item">
-          <span class="lbl">Divergence ∇·A:</span>
-          <span class="val" id="calc-div-val" style="color: ${res.divergence >= 0 ? '#4ade80' : '#60a5fa'}; font-size: 12px;">${res.divergence >= 0 ? '+' : ''}${formatScientific(res.divergence, 3)} s⁻¹</span>
+          <span class="val" id="calc-div-res-mag" style="color: #4ade80; font-weight: 600;">${formatScientific(initialRes.mag, 4)}</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Classification:</span>
-          <span class="val" id="calc-div-class" style="color: #facc15;">${res.classification}</span>
+          <span class="val" id="calc-div-res-class" style="color: #fbbf24; font-weight: 600;">${initialRes.classification}</span>
         </div>
       </div>
     `;
 
-    const fieldEl = container.querySelector('#calc-div-field');
-    const magEl = container.querySelector('#calc-div-mag');
-    const divEl = container.querySelector('#calc-div-val');
-    const classEl = container.querySelector('#calc-div-class');
+    const latexEl = container.querySelector('#calc-div-latex-display');
+    const valEl = container.querySelector('#calc-div-res-val');
+    const vecEl = container.querySelector('#calc-div-res-vec');
+    const magEl = container.querySelector('#calc-div-res-mag');
+    const classEl = container.querySelector('#calc-div-res-class');
 
-    const updateDivResults = () => {
-      const updated = calculateDivergenceAt(this.state.divPoints, this.calcState.divEvalPoint[0], this.calcState.divEvalPoint[1]);
-      if (fieldEl) fieldEl.textContent = `(${formatScientific(updated.field.Fx, 3)}, ${formatScientific(updated.field.Fy, 3)})`;
-      if (magEl) magEl.textContent = formatScientific(updated.fieldMagnitude, 3);
-      if (divEl) {
-        divEl.style.color = updated.divergence >= 0 ? '#4ade80' : '#60a5fa';
-        divEl.textContent = `${updated.divergence >= 0 ? '+' : ''}${formatScientific(updated.divergence, 3)} s⁻¹`;
-      }
-      if (classEl) classEl.textContent = updated.classification;
+    const updateLatexPreview = () => {
+      const activeCoord = this.calcState.divCoord;
+      const activeComps = this.calcState.divComponents[activeCoord];
+      const latex = formatVectorLatex(activeCoord, activeComps[0], activeComps[1], activeComps[2]);
+      this.renderKaTeX(latex, latexEl, true);
     };
 
-    ['x', 'y'].forEach((id, idx) => {
+    const updateResults = () => {
+      const activeCoord = this.calcState.divCoord;
+      const activeComps = this.calcState.divComponents[activeCoord];
+      const activePt = this.calcState.divPoint[activeCoord];
+      const res = computeDivergence(activeCoord, activeComps, activePt);
+
+      if (valEl) {
+        valEl.style.color = res.div > 0.005 ? '#4ade80' : (res.div < -0.005 ? '#60a5fa' : '#38bdf8');
+        valEl.textContent = `${res.div > 0 ? '+' : ''}${formatScientific(res.div, 4)} s⁻¹`;
+      }
+      if (vecEl) vecEl.textContent = `(${formatScientific(res.A1, 3)}, ${formatScientific(res.A2, 3)}, ${formatScientific(res.A3, 3)})`;
+      if (magEl) magEl.textContent = formatScientific(res.mag, 4);
+      if (classEl) classEl.textContent = res.classification;
+    };
+
+    updateLatexPreview();
+
+    // Coordinate switch buttons
+    const coordBtns = container.querySelectorAll('#calc-div-coord-control .segment-btn');
+    coordBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const nextCoord = btn.dataset.divCoord;
+        if (nextCoord === this.calcState.divCoord) return;
+        this.calcState.divCoord = nextCoord;
+
+        coordBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const nextLabels = getLabels(nextCoord);
+        const nextComps = this.calcState.divComponents[nextCoord];
+        const nextPt = this.calcState.divPoint[nextCoord];
+
+        // Update Component labels & input values
+        container.querySelector('#calc-div-c1-label').textContent = nextLabels.c1;
+        container.querySelector('#calc-div-c2-label').textContent = nextLabels.c2;
+        container.querySelector('#calc-div-c3-label').textContent = nextLabels.c3;
+        container.querySelector('#calc-div-c1').value = nextComps[0];
+        container.querySelector('#calc-div-c2').value = nextComps[1];
+        container.querySelector('#calc-div-c3').value = nextComps[2];
+
+        // Update Point labels & input values
+        container.querySelector('#calc-div-p1-label').innerHTML = `<span class="calc-sym">${nextLabels.p1Sym}</span> <span class="calc-unit">${nextLabels.p1Unit}</span>`;
+        container.querySelector('#calc-div-p2-label').innerHTML = `<span class="calc-sym">${nextLabels.p2Sym}</span> <span class="calc-unit">${nextLabels.p2Unit}</span>`;
+        container.querySelector('#calc-div-p3-label').innerHTML = `<span class="calc-sym">${nextLabels.p3Sym}</span> <span class="calc-unit">${nextLabels.p3Unit}</span>`;
+        container.querySelector('#calc-div-p1').value = nextPt[0];
+        container.querySelector('#calc-div-p2').value = nextPt[1];
+        container.querySelector('#calc-div-p3').value = nextPt[2];
+
+        updateLatexPreview();
+        updateResults();
+      });
+    });
+
+    // Component inputs
+    ['c1', 'c2', 'c3'].forEach((id, idx) => {
       const el = container.querySelector(`#calc-div-${id}`);
       el.addEventListener('input', (e) => {
+        const activeCoord = this.calcState.divCoord;
+        this.calcState.divComponents[activeCoord][idx] = e.target.value;
+        updateLatexPreview();
+        updateResults();
+      });
+    });
+
+    // Point coordinate inputs
+    ['p1', 'p2', 'p3'].forEach((id, idx) => {
+      const el = container.querySelector(`#calc-div-${id}`);
+      el.addEventListener('input', (e) => {
+        const activeCoord = this.calcState.divCoord;
         const val = parseFloat(e.target.value);
-        this.calcState.divEvalPoint[idx] = isNaN(val) ? 0 : val;
-        updateDivResults();
+        this.calcState.divPoint[activeCoord][idx] = isNaN(val) ? 0 : val;
+        updateResults();
       });
     });
   }
