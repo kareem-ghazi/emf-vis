@@ -682,3 +682,30 @@ export function calculateCurlAt(vorticesData, x, y, eps = 0.35) {
   };
 }
 
+/**
+ * Scientific number formatter: formats numbers with clean decimals,
+ * switches to scientific notation (e.g. 4.6272e-10) for very small (< 0.0005)
+ * or very large (>= 10000) values, and eliminates negative zeros (-0.000).
+ */
+export function formatScientific(num, decimals = 4) {
+  if (typeof num !== 'number' || isNaN(num)) return (0).toFixed(decimals);
+  if (!isFinite(num)) return num > 0 ? '+∞' : '-∞';
+
+  const absVal = Math.abs(num);
+  if (absVal === 0 || absVal < 1e-15) {
+    return (0).toFixed(decimals);
+  }
+
+  // Very small or very large -> scientific notation
+  if (absVal < 0.0005 || absVal >= 10000) {
+    return num.toExponential(decimals);
+  }
+
+  // Standard fixed decimal
+  const str = num.toFixed(decimals);
+  if (parseFloat(str) === 0) {
+    return (0).toFixed(decimals);
+  }
+  return str;
+}
+

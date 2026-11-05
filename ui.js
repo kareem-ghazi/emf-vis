@@ -15,7 +15,8 @@ import {
   GRADIENT_PRESETS,
   calculateGradientAt,
   calculateDivergenceAt,
-  calculateCurlAt
+  calculateCurlAt,
+  formatScientific
 } from './math.js';
 import { DEFAULT_DIVERGENCE_POINTS } from './topics/divergence.js';
 import { DEFAULT_CURL_VORTICES } from './topics/curl.js';
@@ -890,20 +891,79 @@ export class UIController {
     const pt = this.calcState.gradPoint;
     const expr = this.calcState.gradCustomExpr;
 
+    // Helper: Scans balanced parentheses starting at openIdx
+    const extractBalanced = (str, openIdx) => {
+      let depth = 1;
+      let i = openIdx + 1;
+      while (i < str.length && depth > 0) {
+        if (str[i] === '(') depth++;
+        else if (str[i] === ')') depth--;
+        i++;
+      }
+      if (depth === 0) {
+        return { inside: str.slice(openIdx + 1, i - 1), endIdx: i };
+      }
+      return null;
+    };
+
+    // Helper: Replaces functions with balanced parens
+    const replaceBalancedFn = (str, prefix, callback) => {
+      let out = '';
+      let lastIdx = 0;
+      const regex = new RegExp(prefix + '\\s*\\(', 'gi');
+      let match;
+      while ((match = regex.exec(str)) !== null) {
+        out += str.slice(lastIdx, match.index);
+        const openIdx = match.index + match[0].length - 1;
+        const res = extractBalanced(str, openIdx);
+        if (res) {
+          out += callback(res.inside);
+          lastIdx = res.endIdx;
+          regex.lastIndex = res.endIdx;
+        } else {
+          out += str.slice(match.index);
+          lastIdx = str.length;
+          break;
+        }
+      }
+      out += str.slice(lastIdx);
+      return out;
+    };
+
     // Helper: Converts natural keyboard formula to LaTeX representation
     const formatFormulaToLatex = (raw) => {
       if (!raw || !raw.trim()) return 'V(x, y, z) = 0';
       let s = raw.trim();
 
-      // Convert exp(...) to e^{...}
-      s = s.replace(/\bexp\s*\(([^)]+)\)/gi, 'e^{$1}');
-      s = s.replace(/\bsin\b/gi, '\\sin');
-      s = s.replace(/\bcos\b/gi, '\\cos');
-      s = s.replace(/\btan\b/gi, '\\tan');
-      s = s.replace(/\bsqrt\b/gi, '\\sqrt');
-      s = s.replace(/\b(log|ln)\b/gi, '\\ln');
+      const formatInner = (str) => {
+        let sub = str.trim();
+        sub = replaceBalancedFn(sub, '\\bexp', (inner) => `e^{${formatInner(inner)}}`);
+        sub = replaceBalancedFn(sub, '\\be\\s*\\^', (inner) => `e^{${formatInner(inner)}}`);
+        sub = replaceBalancedFn(sub, '\\bsqrt', (inner) => `\\sqrt{${formatInner(inner)}}`);
+        sub = replaceBalancedFn(sub, '\\babs', (inner) => `\\left|${formatInner(inner)}\\right|`);
+        sub = replaceBalancedFn(sub, '\\bsin', (inner) => `\\sin\\left(${formatInner(inner)}\\right)`);
+        sub = replaceBalancedFn(sub, '\\bcos', (inner) => `\\cos\\left(${formatInner(inner)}\\right)`);
+        sub = replaceBalancedFn(sub, '\\btan', (inner) => `\\tan\\left(${formatInner(inner)}\\right)`);
+        sub = replaceBalancedFn(sub, '\\bln', (inner) => `\\ln\\left(${formatInner(inner)}\\right)`);
+        sub = replaceBalancedFn(sub, '\\blog', (inner) => `\\log\\left(${formatInner(inner)}\\right)`);
+        sub = sub.replace(/\^([a-zA-Z0-9]+)/g, '^{$1}');
+        sub = sub.replace(/\*/g, ' \\cdot ');
+        return sub;
+      };
+
+      // 1. Balanced function replacements
+      s = replaceBalancedFn(s, '\\bexp', (inner) => `e^{${formatInner(inner)}}`);
+      s = replaceBalancedFn(s, '\\be\\s*\\^', (inner) => `e^{${formatInner(inner)}}`);
+      s = replaceBalancedFn(s, '\\bsqrt', (inner) => `\\sqrt{${formatInner(inner)}}`);
+      s = replaceBalancedFn(s, '\\babs', (inner) => `\\left|${formatInner(inner)}\\right|`);
+      s = replaceBalancedFn(s, '\\bsin', (inner) => `\\sin\\left(${formatInner(inner)}\\right)`);
+      s = replaceBalancedFn(s, '\\bcos', (inner) => `\\cos\\left(${formatInner(inner)}\\right)`);
+      s = replaceBalancedFn(s, '\\btan', (inner) => `\\tan\\left(${formatInner(inner)}\\right)`);
+      s = replaceBalancedFn(s, '\\bln', (inner) => `\\ln\\left(${formatInner(inner)}\\right)`);
+      s = replaceBalancedFn(s, '\\blog', (inner) => `\\log\\left(${formatInner(inner)}\\right)`);
+
+      // 2. Format powers and products
       s = s.replace(/\^([a-zA-Z0-9]+)/g, '^{$1}');
-      s = s.replace(/\^\(([^)]+)\)/g, '^{$1}');
       s = s.replace(/\*/g, ' \\cdot ');
 
       return `V(x, y, z) = ${s}`;
@@ -914,36 +974,51 @@ export class UIController {
       if (!raw || !raw.trim()) return 0;
       let s = raw.trim();
 
-      // 1. Replace powers ^ with **
+      // 1. Convert e^(...) -> exp(...) with balanced parentheses
+      s = replaceBalancedFn(s, '\\be\\s*\\^', (inside) => `exp(${inside})`);
+      s = s.replace(/\be\s*\^\s*([a-zA-Z0-9_]+)/gi, 'exp($1)');
+
+      // 2. Replace remaining powers ^ with **
       s = s.replace(/\^/g, '**');
 
-      // 2. Handle e^(...) or e^x -> exp(...)
-      s = s.replace(/\be\s*\*\*\s*\(([^)]+)\)/gi, 'exp($1)');
-      s = s.replace(/\be\s*\*\*\s*([a-zA-Z0-9_]+)/gi, 'exp($1)');
+      // 3. Numbers before variables, functions, or opening parens (e.g. 2x -> 2*x, 2xy -> 2*xy, 3(x) -> 3*(x), 3.5exp -> 3.5*exp)
+      s = s.replace(/(\d)\s*([a-zA-Z_]\w*|\()/g, '$1*$2');
 
-      // 3. Handle numbers before variables or opening parens (e.g. 2x -> 2*x, 3(x) -> 3*(x))
-      s = s.replace(/(\d)\s*([a-zA-Z_]\w*|\()/g, (m, p1, p2) => `${p1}*${p2}`);
+      // 4. Power results followed by variable, paren, or function (e.g. x**2y -> x**2*y, x**2(y) -> x**2*(y))
+      s = s.replace(/(\*\*)\s*(\d+)\s*([a-zA-Z_(])/g, '$1$2*$3');
 
-      // 4. Handle closing paren followed by variable, number, or opening paren: (x+1)(y+1) -> (x+1)*(y+1)
+      // 5. Closing paren followed by variable, number, opening paren, or function: (x+1)(y+1) -> (x+1)*(y+1), (x+1)y -> (x+1)*y
       s = s.replace(/\)\s*(\(|\d|[a-zA-Z_])/g, ')*$1');
 
-      // 5. Handle variables x, y, z before opening paren, but preserve function names
+      // 6. Split adjacent coordinate variables (e.g. xy -> x*y, zx -> z*x, xyz -> x*y*z)
+      s = s.replace(/\b([xyzXYZ]{2,})\b/g, (match) => {
+        return match.split('').join('*');
+      });
+
+      // 7. Variables or identifiers before opening paren (preserving standard math functions)
       s = s.replace(/\b([a-zA-Z_]\w*)\s*\(/g, (match, name) => {
-        const fnNames = ['sin', 'cos', 'tan', 'exp', 'log', 'ln', 'sqrt', 'abs'];
+        const fnNames = ['sin', 'cos', 'tan', 'exp', 'log', 'ln', 'sqrt', 'abs', 'sinh', 'cosh', 'tanh', 'asin', 'acos', 'atan'];
         if (fnNames.includes(name.toLowerCase())) {
           return `${name.toLowerCase()}(`;
         }
         return `${name}*(`;
       });
 
-      // 6. Handle adjacent variables like x y -> x*y
-      s = s.replace(/\b([xyz])\s+([xyz])\b/gi, '$1*$2');
+      // 8. Adjacent separated variables: x y -> x*y
+      s = s.replace(/\b([xyzXYZ])\s+([xyzXYZ])\b/g, '$1*$2');
 
       try {
         const fn = new Function('x', 'y', 'z', `
-          const { sin, cos, tan, exp, log, sqrt, abs, PI } = Math;
+          const { sin, cos, tan, exp, log, sqrt, abs, sinh, cosh, tanh, asin, acos, atan, PI } = Math;
           const ln = log;
-          const e = Math.E;
+          const e = Math.E, E = Math.E;
+          const pi = PI, Pi = PI;
+          const X = x, Y = y, Z = z;
+          const rho = Math.sqrt(x*x + y*y), RHO = rho, Rho = rho;
+          const r = Math.sqrt(x*x + y*y + z*z), R = r;
+          const phi = Math.atan2(y, x), PHI = phi, Phi = phi;
+          const theta = r > 1e-12 ? Math.acos(Math.max(-1, Math.min(1, z / r))) : 0, THETA = theta, Theta = theta;
+          const Sin = sin, Cos = cos, Tan = tan, Exp = exp, Log = log, Ln = ln, Sqrt = sqrt, Abs = abs;
           try {
             const val = Number(${s});
             return (typeof val === 'number' && !isNaN(val) && isFinite(val)) ? val : 0;
@@ -957,8 +1032,8 @@ export class UIController {
       }
     };
 
-    // Helper: Computes numerical gradient vector and magnitude
-    const evaluateCustomGradientAt = (raw, x, y, z, eps = 1e-4) => {
+    // Helper: Computes numerical gradient vector and magnitude with high accuracy
+    const evaluateCustomGradientAt = (raw, x, y, z, eps = 1e-5) => {
       const v0 = evaluateCustomScalar(raw, x, y, z);
       const gx = (evaluateCustomScalar(raw, x + eps, y, z) - evaluateCustomScalar(raw, x - eps, y, z)) / (2 * eps);
       const gy = (evaluateCustomScalar(raw, x, y + eps, z) - evaluateCustomScalar(raw, x, y - eps, z)) / (2 * eps);
@@ -995,15 +1070,15 @@ export class UIController {
         <div class="calc-result-title">Evaluated Scalar Value & Gradient</div>
         <div class="calc-result-item">
           <span class="lbl">Scalar Value V(P):</span>
-          <span class="val" id="calc-grad-val" style="color: #38bdf8; font-size: 13px; font-weight: 700;">${res.v0.toFixed(4)} V</span>
+          <span class="val" id="calc-grad-val" style="color: #38bdf8; font-size: 13px; font-weight: 700;">${formatScientific(res.v0, 4)} V</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Gradient Vector ∇V:</span>
-          <span class="val" id="calc-grad-vec">(${res.gx.toFixed(3)}, ${res.gy.toFixed(3)}, ${res.gz.toFixed(3)}) V/m</span>
+          <span class="val" id="calc-grad-vec">(${formatScientific(res.gx, 3)}, ${formatScientific(res.gy, 3)}, ${formatScientific(res.gz, 3)}) V/m</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Gradient Magnitude |∇V|:</span>
-          <span class="val" id="calc-grad-mag" style="color: #4ade80; font-weight: 600;">${res.mag.toFixed(4)} V/m</span>
+          <span class="val" id="calc-grad-mag" style="color: #4ade80; font-weight: 600;">${formatScientific(res.mag, 4)} V/m</span>
         </div>
       </div>
     `;
@@ -1021,9 +1096,9 @@ export class UIController {
     const updateGradResults = () => {
       const curPt = this.calcState.gradPoint;
       const curRes = evaluateCustomGradientAt(this.calcState.gradCustomExpr, curPt[0], curPt[1], curPt[2]);
-      if (valEl) valEl.textContent = `${curRes.v0.toFixed(4)} V`;
-      if (vecEl) vecEl.textContent = `(${curRes.gx.toFixed(3)}, ${curRes.gy.toFixed(3)}, ${curRes.gz.toFixed(3)}) V/m`;
-      if (magEl) magEl.textContent = `${curRes.mag.toFixed(4)} V/m`;
+      if (valEl) valEl.textContent = `${formatScientific(curRes.v0, 4)} V`;
+      if (vecEl) vecEl.textContent = `(${formatScientific(curRes.gx, 3)}, ${formatScientific(curRes.gy, 3)}, ${formatScientific(curRes.gz, 3)}) V/m`;
+      if (magEl) magEl.textContent = `${formatScientific(curRes.mag, 4)} V/m`;
     };
 
     // Initial render of live KaTeX preview
@@ -1067,15 +1142,15 @@ export class UIController {
         <div class="calc-result-title">Divergence of Active 4-Point Field (Image 1)</div>
         <div class="calc-result-item">
           <span class="lbl">Field Vector A(x, y):</span>
-          <span class="val" id="calc-div-field">(${res.field.Fx.toFixed(3)}, ${res.field.Fy.toFixed(3)})</span>
+          <span class="val" id="calc-div-field">(${formatScientific(res.field.Fx, 3)}, ${formatScientific(res.field.Fy, 3)})</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Field Magnitude |A|:</span>
-          <span class="val" id="calc-div-mag">${res.fieldMagnitude.toFixed(3)}</span>
+          <span class="val" id="calc-div-mag">${formatScientific(res.fieldMagnitude, 3)}</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Divergence ∇·A:</span>
-          <span class="val" id="calc-div-val" style="color: ${res.divergence >= 0 ? '#4ade80' : '#60a5fa'}; font-size: 12px;">${res.divergence >= 0 ? '+' : ''}${res.divergence.toFixed(3)} s⁻¹</span>
+          <span class="val" id="calc-div-val" style="color: ${res.divergence >= 0 ? '#4ade80' : '#60a5fa'}; font-size: 12px;">${res.divergence >= 0 ? '+' : ''}${formatScientific(res.divergence, 3)} s⁻¹</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Classification:</span>
@@ -1091,11 +1166,11 @@ export class UIController {
 
     const updateDivResults = () => {
       const updated = calculateDivergenceAt(this.state.divPoints, this.calcState.divEvalPoint[0], this.calcState.divEvalPoint[1]);
-      if (fieldEl) fieldEl.textContent = `(${updated.field.Fx.toFixed(3)}, ${updated.field.Fy.toFixed(3)})`;
-      if (magEl) magEl.textContent = updated.fieldMagnitude.toFixed(3);
+      if (fieldEl) fieldEl.textContent = `(${formatScientific(updated.field.Fx, 3)}, ${formatScientific(updated.field.Fy, 3)})`;
+      if (magEl) magEl.textContent = formatScientific(updated.fieldMagnitude, 3);
       if (divEl) {
         divEl.style.color = updated.divergence >= 0 ? '#4ade80' : '#60a5fa';
-        divEl.textContent = `${updated.divergence >= 0 ? '+' : ''}${updated.divergence.toFixed(3)} s⁻¹`;
+        divEl.textContent = `${updated.divergence >= 0 ? '+' : ''}${formatScientific(updated.divergence, 3)} s⁻¹`;
       }
       if (classEl) classEl.textContent = updated.classification;
     };
@@ -1131,19 +1206,19 @@ export class UIController {
         <div class="calc-result-title">Curl of Active 4-Vortex Field (Image 2)</div>
         <div class="calc-result-item">
           <span class="lbl">Velocity A(x, y):</span>
-          <span class="val" id="calc-curl-field">(${res.field.Fx.toFixed(3)}, ${res.field.Fy.toFixed(3)})</span>
+          <span class="val" id="calc-curl-field">(${formatScientific(res.field.Fx, 3)}, ${formatScientific(res.field.Fy, 3)})</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Velocity Magnitude |A|:</span>
-          <span class="val" id="calc-curl-mag">${res.fieldMagnitude.toFixed(3)}</span>
+          <span class="val" id="calc-curl-mag">${formatScientific(res.fieldMagnitude, 3)}</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Curl (∇×A)_z:</span>
-          <span class="val" id="calc-curl-val" style="color: ${res.curlZ >= 0 ? '#facc15' : '#60a5fa'}; font-size: 12px;">${res.curlZ >= 0 ? '+' : ''}${res.curlZ.toFixed(3)} rad/s</span>
+          <span class="val" id="calc-curl-val" style="color: ${res.curlZ >= 0 ? '#facc15' : '#60a5fa'}; font-size: 12px;">${res.curlZ >= 0 ? '+' : ''}${formatScientific(res.curlZ, 3)} rad/s</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Angular Velocity ω_z:</span>
-          <span class="val" id="calc-curl-omega">${(res.angularVelocityZ).toFixed(3)} rad/s</span>
+          <span class="val" id="calc-curl-omega">${formatScientific(res.angularVelocityZ, 3)} rad/s</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Classification:</span>
@@ -1160,13 +1235,13 @@ export class UIController {
 
     const updateCurlResults = () => {
       const updated = calculateCurlAt(this.state.curlVortices, this.calcState.curlEvalPoint[0], this.calcState.curlEvalPoint[1]);
-      if (fieldEl) fieldEl.textContent = `(${updated.field.Fx.toFixed(3)}, ${updated.field.Fy.toFixed(3)})`;
-      if (magEl) magEl.textContent = updated.fieldMagnitude.toFixed(3);
+      if (fieldEl) fieldEl.textContent = `(${formatScientific(updated.field.Fx, 3)}, ${formatScientific(updated.field.Fy, 3)})`;
+      if (magEl) magEl.textContent = formatScientific(updated.fieldMagnitude, 3);
       if (curlEl) {
         curlEl.style.color = updated.curlZ >= 0 ? '#facc15' : '#60a5fa';
-        curlEl.textContent = `${updated.curlZ >= 0 ? '+' : ''}${updated.curlZ.toFixed(3)} rad/s`;
+        curlEl.textContent = `${updated.curlZ >= 0 ? '+' : ''}${formatScientific(updated.curlZ, 3)} rad/s`;
       }
-      if (omegaEl) omegaEl.textContent = `${updated.angularVelocityZ.toFixed(3)} rad/s`;
+      if (omegaEl) omegaEl.textContent = `${formatScientific(updated.angularVelocityZ, 3)} rad/s`;
       if (classEl) classEl.textContent = updated.classification;
     };
 
