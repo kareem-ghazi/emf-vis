@@ -42,8 +42,15 @@ export function evalCurlField(x, y) {
   let Fx = 0;
   let Fy = 0;
 
+  // If all vortices are zero, simulate uniform irrotational laminar flow:
+  const allZero = vortices.every(v => Math.abs(v.gamma) < 0.05);
+  if (allZero) {
+    return { Fx: 1.2, Fy: 0, mag: 1.2 };
+  }
+
   for (let i = 0; i < vortices.length; i++) {
     const v = vortices[i];
+    if (Math.abs(v.gamma) < 0.05) continue;
     const dx = x - v.x;
     const dy = y - v.y;
     const r2 = dx * dx + dy * dy;
@@ -59,38 +66,13 @@ export function evalCurlField(x, y) {
 }
 
 /**
- * Creates canvas texture for text labels in 3D scene (curl F > 0 / curl F < 0)
- */
-function createTextLabelSprite(text, color = '#ffffff') {
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 80;
-  const ctx = canvas.getContext('2d');
-
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-  ctx.roundRect(4, 4, 248, 72, 10);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  ctx.font = 'bold 32px "Inter", "Segoe UI", sans-serif';
-  ctx.fillStyle = color;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, 128, 40);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  const mat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
-  const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(0.9, 0.28, 1.0);
-  return sprite;
-}
-
-/**
  * Creates bold number sprite (1, 2, 3, 4) centered inside vortex disk
+ * Matches divergence point color scheme:
+ * - Red CCW: Crisp white with dark outline for contrast
+ * - Blue CW: Deep dark navy #090e1a (identical to divergence sink on blue disk)
+ * - Slate Zero: Crisp white with dark outline #090e1a (identical to divergence zero)
  */
-function createVortexNumberSprite(numberStr, isCCW) {
+function createVortexNumberSprite(numberStr, isCCW, isZero) {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
   canvas.height = 128;
@@ -100,9 +82,25 @@ function createVortexNumberSprite(numberStr, isCCW) {
   ctx.font = '900 84px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  // Red CCW vortices: crisp white; Blue CW vortices: high-contrast dark navy #090e1a
-  ctx.fillStyle = isCCW ? '#ffffff' : '#090e1a';
-  ctx.fillText(numberStr, 64, 68);
+
+  if (isZero) {
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = '#090e1a';
+    ctx.strokeText(numberStr, 64, 68);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(numberStr, 64, 68);
+  } else if (!isCCW) {
+    // Blue CW: dark navy text on light blue disk
+    ctx.fillStyle = '#090e1a';
+    ctx.fillText(numberStr, 64, 68);
+  } else {
+    // Red CCW: crisp white text with dark outline on red disk
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = '#090e1a';
+    ctx.strokeText(numberStr, 64, 68);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(numberStr, 64, 68);
+  }
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
@@ -195,25 +193,46 @@ function buildScene(params) {
     }
   }
 
-  // 2. Circular Circulation Loops with Circulating White Arrows & Text Labels matching Image 2
-  vortices.forEach((v) => {
-    const isCCW = v.gamma > 0;
+  // 2. Circular Circulation Loops with Circulating White Arrows matching Divergence Scheme
+  vortices.forEach((v, idx) => {
+    const isZero = Math.abs(v.gamma) < 0.05;
+    const isCCW = !isZero && v.gamma > 0;
     const ringRadius = 0.52;
     const arrowCount = 4;
 
-    // Center Core Indicator
-    const coreGeo = new THREE.CircleGeometry(0.12, 24);
+    // Center Core Indicator (matches divergence geometry with red kept for CCW)
+    const coreGeo = new THREE.CircleGeometry(0.14, 24);
+    let coreColor = 0xef4444; // CCW: Red (kept instead of orange as requested)
+    if (isZero) coreColor = 0x64748b; // Zero: Slate (matches divergence)
+    else if (!isCCW) coreColor = 0x38bdf8; // CW: Light Blue (matches divergence sink)
+
     const coreMat = new THREE.MeshBasicMaterial({
-      color: isCCW ? 0xef4444 : 0x3b82f6,
+      color: coreColor,
       transparent: true,
-      opacity: 0.85
+      opacity: 0.95
     });
     const coreMesh = new THREE.Mesh(coreGeo, coreMat);
     coreMesh.position.set(v.x, v.y, 0.02);
     ringsGroup.add(coreMesh);
 
-    // Number sprite inside the center of the vortex
-    const numSprite = createVortexNumberSprite(String(v.id), isCCW);
+    // Glowing Core Aura Ring (matches divergence geometry)
+    const auraGeo = new THREE.RingGeometry(0.14, 0.26, 32);
+    let auraColor = 0xb91c1c; // CCW: Red aura
+    if (isZero) auraColor = 0x334155; // Zero: Slate aura
+    else if (!isCCW) auraColor = 0x0284c7; // CW: Light Blue aura
+
+    const auraMat = new THREE.MeshBasicMaterial({
+      color: auraColor,
+      transparent: true,
+      opacity: isZero ? 0.3 : 0.45,
+      side: THREE.DoubleSide
+    });
+    const auraMesh = new THREE.Mesh(auraGeo, auraMat);
+    auraMesh.position.set(v.x, v.y, 0.015);
+    ringsGroup.add(auraMesh);
+
+    // Number sprite inside the center of the vortex (high contrast matching divergence)
+    const numSprite = createVortexNumberSprite(String(idx + 1), isCCW, isZero);
     numSprite.position.set(v.x, v.y, 0.05);
     ringsGroup.add(numSprite);
 
@@ -222,13 +241,16 @@ function buildScene(params) {
     const ringPts = ringCurve.getPoints(48);
     const ringGeo = new THREE.BufferGeometry().setFromPoints(ringPts);
     const ringLine = new THREE.LineLoop(ringGeo, new THREE.LineBasicMaterial({
-      color: 0xffffff,
+      color: isZero ? 0x94a3b8 : 0xffffff,
       transparent: true,
-      opacity: 0.4
+      opacity: isZero ? 0.25 : 0.4
     }));
     ringsGroup.add(ringLine);
 
-    // 4 Circulating White Arrows along the Loop Perimeter (matching Image 2)
+    // If strength is zero, skip perimeter arrows
+    if (isZero) return;
+
+    // 4 Circulating White Arrows along the Loop Perimeter
     for (let a = 0; a < arrowCount; a++) {
       const angle = (a / arrowCount) * 2 * Math.PI;
       const rx = v.x + ringRadius * Math.cos(angle);
@@ -250,19 +272,7 @@ function buildScene(params) {
       arr.line.material.linewidth = 3;
       ringsGroup.add(arr);
     }
-
-    // Text Label: "curl F > 0" or "curl F < 0" (exact match to Image 2!)
-    const labelText = isCCW ? 'curl F > 0' : 'curl F < 0';
-    const labelSprite = createTextLabelSprite(labelText, isCCW ? '#fde047' : '#93c5fd');
-    labelSprite.position.set(v.x, v.y - (v.y > 0 ? 0.72 : -0.72), 0.05);
-    ringsGroup.add(labelSprite);
   });
-
-  // Top header label: "Curl" matching Image 2
-  const topLabel = createTextLabelSprite('Curl (∇×F)', '#ffffff');
-  topLabel.scale.set(1.4, 0.4, 1.0);
-  topLabel.position.set(0, 2.7, 0.05);
-  ringsGroup.add(topLabel);
 
   // 3. Animated Swirling Streamline Particles
   initParticles();
@@ -363,29 +373,44 @@ export function update(time, coordSystem, params) {
 
 /**
  * Uniform Topic Module Contract: getFormulaData()
+ * HUD contains:
+ * 1. Mathematical formulation with cross product determinant matrices for the three different coordinate systems (Cartesian, Cylindrical, Spherical)
+ * 2. Conservative state
+ * 3. Point distribution
  */
 export function getFormulaData(coordSystem, params) {
   const currentVort = params.curlVortices || vortices;
-  const numCCW = currentVort.filter(v => v.gamma > 0).length;
-  const numCW = currentVort.filter(v => v.gamma < 0).length;
+  const numCCW = currentVort.filter(v => v.gamma > 0.05).length;
+  const numCW = currentVort.filter(v => v.gamma < -0.05).length;
+  const numZeros = currentVort.filter(v => Math.abs(v.gamma) <= 0.05).length;
+  const netGamma = currentVort.reduce((acc, v) => acc + v.gamma, 0);
+
+  // Active mathematical formulation with cross product determinant matrices for the THREE coordinate systems
+  const formulaLatex = `\\begin{aligned}
+\\nabla \\times \\vec{A} &= \\begin{vmatrix} \\hat{a}_x & \\hat{a}_y & \\hat{a}_z \\\\[2pt] \\frac{\\partial}{\\partial x} & \\frac{\\partial}{\\partial y} & \\frac{\\partial}{\\partial z} \\\\[4pt] A_x & A_y & A_z \\end{vmatrix} \\\\[10pt]
+\\nabla \\times \\vec{A} &= \\frac{1}{\\rho}\\begin{vmatrix} \\hat{a}_\\rho & \\rho\\hat{a}_\\phi & \\hat{a}_z \\\\[2pt] \\frac{\\partial}{\\partial \\rho} & \\frac{\\partial}{\\partial \\phi} & \\frac{\\partial}{\\partial z} \\\\[4pt] A_\\rho & \\rho A_\\phi & A_z \\end{vmatrix} \\\\[10pt]
+\\nabla \\times \\vec{A} &= \\frac{1}{r^2\\sin\\theta}\\begin{vmatrix} \\hat{a}_r & r\\hat{a}_\\theta & r\\sin\\theta\\hat{a}_\\phi \\\\[2pt] \\frac{\\partial}{\\partial r} & \\frac{\\partial}{\\partial \\theta} & \\frac{\\partial}{\\partial \\phi} \\\\[4pt] A_r & r A_\\theta & r\\sin\\theta A_\\phi \\end{vmatrix}
+\\end{aligned}`;
+
+  const isConservative = Math.abs(netGamma) < 0.05;
+  const conservativeValue = isConservative
+    ? '∇×A = 0 (Conservative / Irrotational Flow)'
+    : `∇×A ≠ 0 (Net Circulation: ${netGamma > 0 ? '+' : ''}${netGamma.toFixed(1)})`;
+
+  const pointDistValue = `${numCCW} CCW (+Γ), ${numCW} CW (-Γ), ${numZeros} Zero (Γ=0)`;
 
   return {
     topicTag: 'Curl',
-    topicTitle: 'The Curl (∇×A): Vorticity, Rotation & Swirl',
-    modeBtnText: 'Reset 3Blue1Brown Layout',
-    modeDesc: 'Curl measures the microscopic rotation (vorticity) of a vector field. If a miniature paddlewheel were placed in the flow, curl determines its rotation rate and direction (∇×A > 0 counter-clockwise, ∇×A < 0 clockwise).',
-    formulaLatex: `\\nabla \\times \\vec{A} = \\left(\\frac{\\partial A_y}{\\partial x} - \\frac{\\partial A_x}{\\partial y}\\right)\\hat{a}_z = 2\\vec{\\omega}`,
-    detailTitle: 'Microscopic Vorticity & Stokes Circulation',
-    detailLatex: `\\begin{aligned}
-\\vec{A}(x, y) &= \\sum_{i=1}^4 \\Gamma_i \\frac{-(y - y_i)\\hat{a}_x + (x - x_i)\\hat{a}_y}{|\\vec{r} - \\vec{r}_i|^2 + \\epsilon^2} \\\\
-(\\nabla \\times \\vec{A})_z &= \\sum_{i=1}^4 \\Gamma_i \\frac{2\\epsilon^2}{(|\\vec{r} - \\vec{r}_i|^2 + \\epsilon^2)^2} \\\\
-\\vec{\\omega} &= \\frac{1}{2}(\\nabla \\times \\vec{A}) \\quad (\\text{Local Fluid Angular Velocity})
-\\end{aligned}`,
+    topicTitle: 'The Curl (∇×A)',
+    modeBtnText: 'Reset 4-Vortex Layout',
+    modeDesc: 'Curl measures the microscopic circulation (vorticity) per unit area. Vector fields with ∇×A = 0 are conservative/irrotational, while ∇×A > 0 and ∇×A < 0 indicate counter-clockwise and clockwise rotation.',
+    formulaLatex,
+    probeSubtitle: 'Conservative State & Point Distribution',
+    detailTitle: '',
+    detailLatex: '', // Hides redundant detail box
     readout: [
-      { label: 'Field Mode', value: '2D Cartesian Curl (4 Controllable Vortices)' },
-      { label: 'Active Vortices', value: `${numCCW} Counter-Clockwise (curl > 0), ${numCW} Clockwise (curl < 0)` },
-      { label: 'White Circulation Loops', value: 'Paddlewheel circulation loops with curl F > 0 / curl F < 0', fullWidth: true },
-      { label: '3B1B Color Scheme', value: 'Red outer boundary -> Warm Orange -> Fiery Yellow jet streams', fullWidth: true }
+      { label: 'Conservative State', value: conservativeValue },
+      { label: 'Point Distribution', value: pointDistValue }
     ]
   };
 }

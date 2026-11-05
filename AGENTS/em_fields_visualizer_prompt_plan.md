@@ -35,12 +35,13 @@ The application contains **EXACTLY 4 specialized educational topics**, designed 
 
 4. **The Curl ($\nabla \times \vec{A}$)**:
    - Visualized as local rotation, swirl, and vorticity of a vector field.
-   - Designed to match **Reference Image 2 (3Blue1Brown Aesthetic)**: deep dark background with fiery red $\to$ orange $\to$ yellow streamlines, **4 controllable vortex centers on the 2D Cartesian plane** (2 counter-clockwise with circulating white arrow loops labeled $\text{curl } \mathbf{F} > 0$, 2 clockwise with circulating white arrow loops labeled $\text{curl } \mathbf{F} < 0$).
-   - Locked 2D top-down canvas controls with zoom-only interaction.
-   - Bold numeric identification sprites (`1`, `2`, `3`, `4`) inside vortex center disks matching V1-V4 selector pills.
-   - Animated swirling fluid streamlines circulating around vortex cores.
-   - Interactive Vortex Selection Pills (V1, V2, V3, V4) with position sliders ($X, Y$) and Counter-Clockwise (CCW, $\text{curl} > 0$) / Clockwise (CW, $\text{curl} < 0$) circulation toggles.
-   - Built-in Curl Calculator calculating the vorticity vector and circulation magnitude at any point $(x, y)$.
+   - Designed to match **Reference Image 2 (3Blue1Brown Aesthetic)**: deep dark background with fiery red $\to$ orange $\to$ yellow streamlines, **4 controllable vortex centers on the 2D Cartesian plane** (2 counter-clockwise, 2 clockwise, with zero-rotation support).
+   - Locked 2D top-down canvas controls with zoom-only interaction (`Scroll: Zoom`).
+   - Clean vortex center disks without floating label badges, featuring centered bold numbers matching the divergence color scheme (red CCW, blue CW, slate Zero).
+   - Animated swirling fluid streamlines circulating around vortex cores; when all vortices are zero, displays uniform irrotational laminar streamline flow.
+   - Interactive Vortex Selection Pills (V1, V2, V3, V4) with position sliders ($X, Y$) and 3-way Counter-Clockwise (CCW, $\text{curl} > 0$) / Clockwise (CW, $\text{curl} < 0$) / Zero ($\text{curl} = 0$) toggles.
+   - Streamlined HUD displaying cross product determinant matrices for Cartesian, Cylindrical, and Spherical coordinate systems, live Conservative State, and Point Distribution.
+   - Built-in Vector Function Curl Calculator supporting Cartesian, Cylindrical, and Spherical coordinates with metric scaling factors, live KaTeX formula preview, 3D curl vector, magnitude, and tri-color classification without focus loss.
 
 ---
 
@@ -137,3 +138,4 @@ The application contains **EXACTLY 4 specialized educational topics**, designed 
 - [x] Phase 12: Algebraic Juxtaposition Multiplication (Implicit Multiplication for Adjacent Variables e.g. xy, zx, 2zx, 2xy, zx^2, Power Variable Products)
 - [x] Phase 13: Gradient Multi-Coordinate Calculator Support (Cartesian, Cylindrical, Spherical with Metric Scaling Factors), Divergence Subtitle Clutter Removal, and Red Sink Divergence Result Color Styling
 - [x] Phase 14: Non-Double-Escaped Greek Symbol KaTeX Rendering for Rho and Phi in Gradient and Divergence Functions, and Tri-Color Divergence Palette (Green Source, Red Sink, Amber Zero)
+- [x] Phase 15: Curl HUD Cross Product Matrices & Conservative State Synchronization, Canvas Floating Label Cleanup, Divergence-Consistent Vortex Color Scheme (with Red CCW), Zero-Rotation Curl Control, and Multi-Coordinate Curl Calculator Suite
