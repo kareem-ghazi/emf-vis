@@ -132,9 +132,17 @@ export class UIController {
       magVector: [3.0, 4.0, 0.0],
       dirVector: [1.0, 2.0, 2.0],
 
-      gradPreset: 'gauss',
-      gradCustomExpr: '3.5 * exp(-(x^2 + y^2) / 3)',
-      gradPoint: [1.0, 1.0, 0.0],
+      gradCoord: 'cartesian',
+      gradExpressions: {
+        cartesian: '3.5 * exp(-(x^2 + y^2) / 3)',
+        cylindrical: '3.5 * exp(-rho^2 / 3)',
+        spherical: '3.5 * exp(-r^2 / 3)'
+      },
+      gradPoints: {
+        cartesian: [1.0, 1.0, 0.0],
+        cylindrical: [1.414, 45.0, 0.0],
+        spherical: [1.414, 90.0, 45.0]
+      },
 
       divCoord: 'cartesian',
       divComponents: {
@@ -940,10 +948,11 @@ export class UIController {
     });
   }
 
-  // 5. Gradient Calculator
+  // 5. Gradient Calculator (Custom Scalar Function in Cartesian, Cylindrical, Spherical)
   renderGradientCalculator(container) {
-    const pt = this.calcState.gradPoint;
-    const expr = this.calcState.gradCustomExpr;
+    const coord = this.calcState.gradCoord;
+    const expr = this.calcState.gradExpressions[coord];
+    const pt = this.calcState.gradPoints[coord];
 
     // Helper: Scans balanced parentheses starting at openIdx
     const extractBalanced = (str, openIdx) => {
@@ -985,8 +994,11 @@ export class UIController {
     };
 
     // Helper: Converts natural keyboard formula to LaTeX representation
-    const formatFormulaToLatex = (raw) => {
-      if (!raw || !raw.trim()) return 'V(x, y, z) = 0';
+    const formatFormulaToLatex = (coordSys, raw) => {
+      let prefix = 'V(x, y, z)';
+      if (coordSys === 'cylindrical') prefix = 'V(\\rho, \\phi, z)';
+      else if (coordSys === 'spherical') prefix = 'V(r, \\theta, \\phi)';
+      if (!raw || !raw.trim()) return `${prefix} = 0`;
       let s = raw.trim();
 
       const formatInner = (str) => {
@@ -1000,6 +1012,9 @@ export class UIController {
         sub = replaceBalancedFn(sub, '\\btan', (inner) => `\\tan\\left(${formatInner(inner)}\\right)`);
         sub = replaceBalancedFn(sub, '\\bln', (inner) => `\\ln\\left(${formatInner(inner)}\\right)`);
         sub = replaceBalancedFn(sub, '\\blog', (inner) => `\\log\\left(${formatInner(inner)}\\right)`);
+        sub = sub.replace(/\brho\b/gi, '\\rho');
+        sub = sub.replace(/\bphi\b/gi, '\\phi');
+        sub = sub.replace(/\btheta\b/gi, '\\theta');
         sub = sub.replace(/\^([a-zA-Z0-9]+)/g, '^{$1}');
         sub = sub.replace(/\*/g, ' \\cdot ');
         return sub;
@@ -1015,16 +1030,19 @@ export class UIController {
       s = replaceBalancedFn(s, '\\btan', (inner) => `\\tan\\left(${formatInner(inner)}\\right)`);
       s = replaceBalancedFn(s, '\\bln', (inner) => `\\ln\\left(${formatInner(inner)}\\right)`);
       s = replaceBalancedFn(s, '\\blog', (inner) => `\\log\\left(${formatInner(inner)}\\right)`);
+      s = s.replace(/\brho\b/gi, '\\rho');
+      s = s.replace(/\bphi\b/gi, '\\phi');
+      s = s.replace(/\btheta\b/gi, '\\theta');
 
       // 2. Format powers and products
       s = s.replace(/\^([a-zA-Z0-9]+)/g, '^{$1}');
       s = s.replace(/\*/g, ' \\cdot ');
 
-      return `V(x, y, z) = ${s}`;
+      return `${prefix} = ${s}`;
     };
 
-    // Helper: Evaluates scalar function safely from user expression
-    const evaluateCustomScalar = (raw, x, y, z) => {
+    // Helper: Evaluates scalar function safely from user expression in active coordinate system
+    const evaluateCustomScalar = (raw, u1, u2, u3, coordSys) => {
       if (!raw || !raw.trim()) return 0;
       let s = raw.trim();
 
@@ -1032,24 +1050,27 @@ export class UIController {
       s = replaceBalancedFn(s, '\\be\\s*\\^', (inside) => `exp(${inside})`);
       s = s.replace(/\be\s*\^\s*([a-zA-Z0-9_]+)/gi, 'exp($1)');
 
-      // 2. Replace remaining powers ^ with **
+      // 2. Unary minus before exponentiation: -z^2 -> (0 - 1) * z^2
+      s = s.replace(/(^|[+\-*/(,])\s*-\s*([a-zA-Z_]\w*|\d+(?:\.\d+)?)\s*\^/g, '$1 (0 - 1) * $2^');
+
+      // 3. Replace remaining powers ^ with **
       s = s.replace(/\^/g, '**');
 
-      // 3. Numbers before variables, functions, or opening parens (e.g. 2x -> 2*x, 2xy -> 2*xy, 3(x) -> 3*(x), 3.5exp -> 3.5*exp)
+      // 4. Numbers before variables, functions, or opening parens
       s = s.replace(/(\d)\s*([a-zA-Z_]\w*|\()/g, '$1*$2');
 
-      // 4. Power results followed by variable, paren, or function (e.g. x**2y -> x**2*y, x**2(y) -> x**2*(y))
+      // 5. Power results followed by variable, paren, or function
       s = s.replace(/(\*\*)\s*(\d+)\s*([a-zA-Z_(])/g, '$1$2*$3');
 
-      // 5. Closing paren followed by variable, number, opening paren, or function: (x+1)(y+1) -> (x+1)*(y+1), (x+1)y -> (x+1)*y
+      // 6. Closing paren followed by variable, number, opening paren, or function
       s = s.replace(/\)\s*(\(|\d|[a-zA-Z_])/g, ')*$1');
 
-      // 6. Split adjacent coordinate variables (e.g. xy -> x*y, zx -> z*x, xyz -> x*y*z)
+      // 7. Split adjacent coordinate variables (e.g. xy -> x*y, zx -> z*x)
       s = s.replace(/\b([xyzXYZ]{2,})\b/g, (match) => {
         return match.split('').join('*');
       });
 
-      // 7. Variables or identifiers before opening paren (preserving standard math functions)
+      // 8. Variables or identifiers before opening paren (preserving standard math functions)
       s = s.replace(/\b([a-zA-Z_]\w*)\s*\(/g, (match, name) => {
         const fnNames = ['sin', 'cos', 'tan', 'exp', 'log', 'ln', 'sqrt', 'abs', 'sinh', 'cosh', 'tanh', 'asin', 'acos', 'atan'];
         if (fnNames.includes(name.toLowerCase())) {
@@ -1058,20 +1079,33 @@ export class UIController {
         return `${name}*(`;
       });
 
-      // 8. Adjacent separated variables: x y -> x*y
+      // 9. Adjacent separated variables: x y -> x*y
       s = s.replace(/\b([xyzXYZ])\s+([xyzXYZ])\b/g, '$1*$2');
 
       try {
-        const fn = new Function('x', 'y', 'z', `
+        const fn = new Function('u1', 'u2', 'u3', `
           const { sin, cos, tan, exp, log, sqrt, abs, sinh, cosh, tanh, asin, acos, atan, PI } = Math;
           const ln = log;
           const e = Math.E, E = Math.E;
           const pi = PI, Pi = PI;
+          let x = u1, y = u2, z = u3;
+          let rho = u1, phi = u2;
+          let r = u1, theta = u2;
+          if ('${coordSys}' === 'cylindrical') {
+            rho = u1; phi = u2; z = u3;
+            x = rho * Math.cos(phi); y = rho * Math.sin(phi);
+          } else if ('${coordSys}' === 'spherical') {
+            r = u1; theta = u2; phi = u3;
+            x = r * Math.sin(theta) * Math.cos(phi);
+            y = r * Math.sin(theta) * Math.sin(phi);
+            z = r * Math.cos(theta);
+            rho = r * Math.sin(theta);
+          }
           const X = x, Y = y, Z = z;
-          const rho = Math.sqrt(x*x + y*y), RHO = rho, Rho = rho;
-          const r = Math.sqrt(x*x + y*y + z*z), R = r;
-          const phi = Math.atan2(y, x), PHI = phi, Phi = phi;
-          const theta = r > 1e-12 ? Math.acos(Math.max(-1, Math.min(1, z / r))) : 0, THETA = theta, Theta = theta;
+          const RHO = rho, Rho = rho;
+          const R = r;
+          const PHI = phi, Phi = phi;
+          const THETA = theta, Theta = theta;
           const Sin = sin, Cos = cos, Tan = tan, Exp = exp, Log = log, Ln = ln, Sqrt = sqrt, Abs = abs;
           try {
             const val = Number(${s});
@@ -1080,25 +1114,83 @@ export class UIController {
             return 0;
           }
         `);
-        return fn(x, y, z);
+        return fn(u1, u2, u3);
       } catch (err) {
         return 0;
       }
     };
 
-    // Helper: Computes numerical gradient vector and magnitude with high accuracy
-    const evaluateCustomGradientAt = (raw, x, y, z, eps = 1e-5) => {
-      const v0 = evaluateCustomScalar(raw, x, y, z);
-      const gx = (evaluateCustomScalar(raw, x + eps, y, z) - evaluateCustomScalar(raw, x - eps, y, z)) / (2 * eps);
-      const gy = (evaluateCustomScalar(raw, x, y + eps, z) - evaluateCustomScalar(raw, x, y - eps, z)) / (2 * eps);
-      const gz = (evaluateCustomScalar(raw, x, y, z + eps) - evaluateCustomScalar(raw, x, y, z - eps)) / (2 * eps);
-      const mag = Math.sqrt(gx * gx + gy * gy + gz * gz);
-      return { v0, gx, gy, gz, mag };
+    // Helper: Computes numerical gradient vector and magnitude with metric factors in active coordinate system
+    const evaluateCustomGradientAt = (coordSys, raw, pList, eps = 1e-5) => {
+      let u1 = pList[0];
+      let u2 = pList[1];
+      let u3 = pList[2];
+
+      if (coordSys === 'cylindrical') {
+        u2 = (pList[1] * Math.PI) / 180; // phi in radians
+      } else if (coordSys === 'spherical') {
+        u2 = (pList[1] * Math.PI) / 180; // theta in radians
+        u3 = (pList[2] * Math.PI) / 180; // phi in radians
+      }
+
+      const v0 = evaluateCustomScalar(raw, u1, u2, u3, coordSys);
+
+      let g1 = 0, g2 = 0, g3 = 0;
+      if (coordSys === 'cartesian') {
+        g1 = (evaluateCustomScalar(raw, u1 + eps, u2, u3, coordSys) - evaluateCustomScalar(raw, u1 - eps, u2, u3, coordSys)) / (2 * eps);
+        g2 = (evaluateCustomScalar(raw, u1, u2 + eps, u3, coordSys) - evaluateCustomScalar(raw, u1, u2 - eps, u3, coordSys)) / (2 * eps);
+        g3 = (evaluateCustomScalar(raw, u1, u2, u3 + eps, coordSys) - evaluateCustomScalar(raw, u1, u2, u3 - eps, coordSys)) / (2 * eps);
+      } else if (coordSys === 'cylindrical') {
+        const rho = Math.max(1e-4, u1);
+        g1 = (evaluateCustomScalar(raw, rho + eps, u2, u3, coordSys) - evaluateCustomScalar(raw, rho - eps, u2, u3, coordSys)) / (2 * eps);
+        g2 = (1 / rho) * (evaluateCustomScalar(raw, u1, u2 + eps, u3, coordSys) - evaluateCustomScalar(raw, u1, u2 - eps, u3, coordSys)) / (2 * eps);
+        g3 = (evaluateCustomScalar(raw, u1, u2, u3 + eps, coordSys) - evaluateCustomScalar(raw, u1, u2, u3 - eps, coordSys)) / (2 * eps);
+      } else if (coordSys === 'spherical') {
+        const r = Math.max(1e-4, u1);
+        const theta = u2;
+        const sinTheta = Math.max(1e-4, Math.abs(Math.sin(theta)));
+        g1 = (evaluateCustomScalar(raw, r + eps, u2, u3, coordSys) - evaluateCustomScalar(raw, r - eps, u2, u3, coordSys)) / (2 * eps);
+        g2 = (1 / r) * (evaluateCustomScalar(raw, u1, theta + eps, u3, coordSys) - evaluateCustomScalar(raw, u1, theta - eps, u3, coordSys)) / (2 * eps);
+        g3 = (1 / (r * sinTheta)) * (evaluateCustomScalar(raw, u1, u2, u3 + eps, coordSys) - evaluateCustomScalar(raw, u1, u2, u3 - eps, coordSys)) / (2 * eps);
+      }
+
+      const mag = Math.sqrt(g1 * g1 + g2 * g2 + g3 * g3);
+      return { v0, g1, g2, g3, mag };
     };
 
-    const res = evaluateCustomGradientAt(expr, pt[0], pt[1], pt[2]);
+    const getGradLabels = (coordSys) => {
+      if (coordSys === 'cartesian') {
+        return {
+          p1Sym: 'x', p1Unit: '(m)',
+          p2Sym: 'y', p2Unit: '(m)',
+          p3Sym: 'z', p3Unit: '(m)'
+        };
+      } else if (coordSys === 'cylindrical') {
+        return {
+          p1Sym: 'ρ', p1Unit: '(m)',
+          p2Sym: 'φ', p2Unit: '(°)',
+          p3Sym: 'z', p3Unit: '(m)'
+        };
+      } else {
+        return {
+          p1Sym: 'r', p1Unit: '(m)',
+          p2Sym: 'θ', p2Unit: '(°)',
+          p3Sym: 'φ', p3Unit: '(°)'
+        };
+      }
+    };
+
+    const initialLabels = getGradLabels(coord);
+    const initialRes = evaluateCustomGradientAt(coord, expr, pt);
 
     container.innerHTML = `
+      <!-- Coordinate System Segmented Control -->
+      <div class="segmented-control" id="calc-grad-coord-control" style="margin-bottom: 8px;">
+        <button type="button" class="segment-btn ${coord === 'cartesian' ? 'active' : ''}" data-grad-coord="cartesian">Cartesian (x,y,z)</button>
+        <button type="button" class="segment-btn ${coord === 'cylindrical' ? 'active' : ''}" data-grad-coord="cylindrical">Cylindrical (ρ,φ,z)</button>
+        <button type="button" class="segment-btn ${coord === 'spherical' ? 'active' : ''}" data-grad-coord="spherical">Spherical (r,θ,φ)</button>
+      </div>
+
       <div class="calc-result-box" style="margin-bottom: 6px;">
         <div class="calc-result-title">Scalar Function</div>
         <input type="text" class="calc-input-field" id="calc-grad-expr" value="${expr}" placeholder="e.g. 3.5 * exp(-(x^2 + y^2)/3) or x^2 + y^2 + z" style="font-size: 12px; font-weight: 600; color: #38bdf8; margin-bottom: 4px;">
@@ -1107,16 +1199,16 @@ export class UIController {
 
       <div class="calc-input-row">
         <div class="calc-input-box">
-          <span class="calc-input-label"><span class="calc-sym">x</span> <span class="calc-unit">(m)</span></span>
-          <input type="number" step="0.1" class="calc-input-field" id="calc-grad-x" value="${pt[0]}">
+          <span class="calc-input-label" id="calc-grad-p1-label"><span class="calc-sym">${initialLabels.p1Sym}</span> <span class="calc-unit">${initialLabels.p1Unit}</span></span>
+          <input type="number" step="0.1" class="calc-input-field" id="calc-grad-p1" value="${pt[0]}">
         </div>
         <div class="calc-input-box">
-          <span class="calc-input-label"><span class="calc-sym">y</span> <span class="calc-unit">(m)</span></span>
-          <input type="number" step="0.1" class="calc-input-field" id="calc-grad-y" value="${pt[1]}">
+          <span class="calc-input-label" id="calc-grad-p2-label"><span class="calc-sym">${initialLabels.p2Sym}</span> <span class="calc-unit">${initialLabels.p2Unit}</span></span>
+          <input type="number" step="0.1" class="calc-input-field" id="calc-grad-p2" value="${pt[1]}">
         </div>
         <div class="calc-input-box">
-          <span class="calc-input-label"><span class="calc-sym">z</span> <span class="calc-unit">(m)</span></span>
-          <input type="number" step="0.1" class="calc-input-field" id="calc-grad-z" value="${pt[2]}">
+          <span class="calc-input-label" id="calc-grad-p3-label"><span class="calc-sym">${initialLabels.p3Sym}</span> <span class="calc-unit">${initialLabels.p3Unit}</span></span>
+          <input type="number" step="0.1" class="calc-input-field" id="calc-grad-p3" value="${pt[2]}">
         </div>
       </div>
 
@@ -1124,15 +1216,15 @@ export class UIController {
         <div class="calc-result-title">Evaluated Scalar Value & Gradient</div>
         <div class="calc-result-item">
           <span class="lbl">Scalar Value V(P):</span>
-          <span class="val" id="calc-grad-val" style="color: #38bdf8; font-size: 13px; font-weight: 700;">${formatScientific(res.v0, 4)} V</span>
+          <span class="val" id="calc-grad-val" style="color: #38bdf8; font-size: 13px; font-weight: 700;">${formatScientific(initialRes.v0, 4)} V</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Gradient Vector ∇V:</span>
-          <span class="val" id="calc-grad-vec">(${formatScientific(res.gx, 3)}, ${formatScientific(res.gy, 3)}, ${formatScientific(res.gz, 3)}) V/m</span>
+          <span class="val" id="calc-grad-vec">(${formatScientific(initialRes.g1, 3)}, ${formatScientific(initialRes.g2, 3)}, ${formatScientific(initialRes.g3, 3)}) V/m</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Gradient Magnitude |∇V|:</span>
-          <span class="val" id="calc-grad-mag" style="color: #4ade80; font-weight: 600;">${formatScientific(res.mag, 4)} V/m</span>
+          <span class="val" id="calc-grad-mag" style="color: #4ade80; font-weight: 600;">${formatScientific(initialRes.mag, 4)} V/m</span>
         </div>
       </div>
     `;
@@ -1143,33 +1235,68 @@ export class UIController {
     const magEl = container.querySelector('#calc-grad-mag');
 
     const updateLatex = () => {
-      const latex = formatFormulaToLatex(this.calcState.gradCustomExpr);
+      const activeCoord = this.calcState.gradCoord;
+      const activeExpr = this.calcState.gradExpressions[activeCoord];
+      const latex = formatFormulaToLatex(activeCoord, activeExpr);
       this.renderKaTeX(latex, latexEl, true);
     };
 
     const updateGradResults = () => {
-      const curPt = this.calcState.gradPoint;
-      const curRes = evaluateCustomGradientAt(this.calcState.gradCustomExpr, curPt[0], curPt[1], curPt[2]);
+      const activeCoord = this.calcState.gradCoord;
+      const activeExpr = this.calcState.gradExpressions[activeCoord];
+      const activePt = this.calcState.gradPoints[activeCoord];
+      const curRes = evaluateCustomGradientAt(activeCoord, activeExpr, activePt);
       if (valEl) valEl.textContent = `${formatScientific(curRes.v0, 4)} V`;
-      if (vecEl) vecEl.textContent = `(${formatScientific(curRes.gx, 3)}, ${formatScientific(curRes.gy, 3)}, ${formatScientific(curRes.gz, 3)}) V/m`;
+      if (vecEl) vecEl.textContent = `(${formatScientific(curRes.g1, 3)}, ${formatScientific(curRes.g2, 3)}, ${formatScientific(curRes.g3, 3)}) V/m`;
       if (magEl) magEl.textContent = `${formatScientific(curRes.mag, 4)} V/m`;
     };
 
     // Initial render of live KaTeX preview
     updateLatex();
 
+    // Coordinate switch buttons
+    const coordBtns = container.querySelectorAll('#calc-grad-coord-control .segment-btn');
+    coordBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const nextCoord = btn.dataset.gradCoord;
+        if (nextCoord === this.calcState.gradCoord) return;
+        this.calcState.gradCoord = nextCoord;
+
+        coordBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const nextLabels = getGradLabels(nextCoord);
+        const nextExpr = this.calcState.gradExpressions[nextCoord];
+        const nextPt = this.calcState.gradPoints[nextCoord];
+
+        container.querySelector('#calc-grad-expr').value = nextExpr;
+
+        container.querySelector('#calc-grad-p1-label').innerHTML = `<span class="calc-sym">${nextLabels.p1Sym}</span> <span class="calc-unit">${nextLabels.p1Unit}</span>`;
+        container.querySelector('#calc-grad-p2-label').innerHTML = `<span class="calc-sym">${nextLabels.p2Sym}</span> <span class="calc-unit">${nextLabels.p2Unit}</span>`;
+        container.querySelector('#calc-grad-p3-label').innerHTML = `<span class="calc-sym">${nextLabels.p3Sym}</span> <span class="calc-unit">${nextLabels.p3Unit}</span>`;
+        container.querySelector('#calc-grad-p1').value = nextPt[0];
+        container.querySelector('#calc-grad-p2').value = nextPt[1];
+        container.querySelector('#calc-grad-p3').value = nextPt[2];
+
+        updateLatex();
+        updateGradResults();
+      });
+    });
+
     const exprInput = container.querySelector('#calc-grad-expr');
     exprInput.addEventListener('input', (e) => {
-      this.calcState.gradCustomExpr = e.target.value;
+      const activeCoord = this.calcState.gradCoord;
+      this.calcState.gradExpressions[activeCoord] = e.target.value;
       updateLatex();
       updateGradResults();
     });
 
-    ['x', 'y', 'z'].forEach((id, idx) => {
+    ['p1', 'p2', 'p3'].forEach((id, idx) => {
       const el = container.querySelector(`#calc-grad-${id}`);
       el.addEventListener('input', (e) => {
+        const activeCoord = this.calcState.gradCoord;
         const val = parseFloat(e.target.value);
-        this.calcState.gradPoint[idx] = isNaN(val) ? 0 : val;
+        this.calcState.gradPoints[activeCoord][idx] = isNaN(val) ? 0 : val;
         updateGradResults();
       });
     });
@@ -1415,7 +1542,6 @@ export class UIController {
 
     container.innerHTML = `
       <!-- Coordinate System Segmented Control -->
-      <label class="section-label" style="margin-bottom: 6px;">Coordinate System</label>
       <div class="segmented-control" id="calc-div-coord-control" style="margin-bottom: 8px;">
         <button type="button" class="segment-btn ${coord === 'cartesian' ? 'active' : ''}" data-div-coord="cartesian">Cartesian (x,y,z)</button>
         <button type="button" class="segment-btn ${coord === 'cylindrical' ? 'active' : ''}" data-div-coord="cylindrical">Cylindrical (ρ,φ,z)</button>
@@ -1463,7 +1589,7 @@ export class UIController {
         <div class="calc-result-title">Evaluated Divergence & Field Value</div>
         <div class="calc-result-item">
           <span class="lbl">Divergence ∇·A:</span>
-          <span class="val" id="calc-div-res-val" style="color: ${initialRes.div >= 0 ? '#4ade80' : '#60a5fa'}; font-size: 13px; font-weight: 700;">${initialRes.div >= 0 ? '+' : ''}${formatScientific(initialRes.div, 4)} s⁻¹</span>
+          <span class="val" id="calc-div-res-val" style="color: ${initialRes.div >= 0 ? '#4ade80' : '#ef4444'}; font-size: 13px; font-weight: 700;">${initialRes.div >= 0 ? '+' : ''}${formatScientific(initialRes.div, 4)} s⁻¹</span>
         </div>
         <div class="calc-result-item">
           <span class="lbl">Field Vector A(P):</span>
@@ -1500,12 +1626,15 @@ export class UIController {
       const res = computeDivergence(activeCoord, activeComps, activePt);
 
       if (valEl) {
-        valEl.style.color = res.div > 0.005 ? '#4ade80' : (res.div < -0.005 ? '#60a5fa' : '#38bdf8');
-        valEl.textContent = `${res.div > 0 ? '+' : ''}${formatScientific(res.div, 4)} s⁻¹`;
+        valEl.style.color = res.div >= 0 ? '#4ade80' : '#ef4444';
+        valEl.textContent = `${res.div >= 0 ? '+' : ''}${formatScientific(res.div, 4)} s⁻¹`;
       }
       if (vecEl) vecEl.textContent = `(${formatScientific(res.A1, 3)}, ${formatScientific(res.A2, 3)}, ${formatScientific(res.A3, 3)})`;
       if (magEl) magEl.textContent = formatScientific(res.mag, 4);
-      if (classEl) classEl.textContent = res.classification;
+      if (classEl) {
+        classEl.style.color = res.div < -0.005 ? '#ef4444' : (res.div > 0.005 ? '#4ade80' : '#fbbf24');
+        classEl.textContent = res.classification;
+      }
     };
 
     updateLatexPreview();

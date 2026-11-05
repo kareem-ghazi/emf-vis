@@ -20,7 +20,7 @@ The application contains **EXACTLY 4 specialized educational topics**, designed 
    - Smooth ascending streamlines and non-flashing soft glow particles with individual continuous progression and summit fade-out.
    - Robust support for all 3 topographical profiles (Single Gaussian Peak, Twin Peaks, Volcano Crater) with depth-offsetting to prevent Z-fighting.
    - Streamlined HUD displaying gradient formulation for Cartesian, Cylindrical, and Spherical coordinate systems, active hill profile, and peak altitude only.
-   - Built-in Natural Keyboard Gradient Calculator with live KaTeX LaTeX preview and real-time scalar potential $V(P)$ and gradient evaluation without focus loss.
+   - Built-in Natural Keyboard Gradient Calculator supporting Cartesian, Cylindrical, and Spherical coordinate systems with dynamic metric scaling factors, live KaTeX LaTeX preview, and real-time scalar potential $V(P)$ and gradient evaluation without focus loss.
 
 3. **Divergence ($\nabla \cdot \vec{A}$)**:
    - Visualized as the net outward flow of flux from sources and inward flow to sinks.
@@ -135,3 +135,4 @@ The application contains **EXACTLY 4 specialized educational topics**, designed 
 - [x] Phase 10: Dynamic Hill Spread across All 3 Profiles, Gradient Arrow Occlusion Resolution, and Calculator Expression Parser Fix
 - [x] Phase 11: Scientific Number Formatting (Exponential Notation for Extreme Coordinates, Zero-Artifact Elimination) and Balanced Parentheses Formula Parser for KaTeX Display
 - [x] Phase 12: Algebraic Juxtaposition Multiplication (Implicit Multiplication for Adjacent Variables e.g. xy, zx, 2zx, 2xy, zx^2, Power Variable Products)
+- [x] Phase 13: Gradient Multi-Coordinate Calculator Support (Cartesian, Cylindrical, Spherical with Metric Scaling Factors), Divergence Subtitle Clutter Removal, and Red Sink Divergence Result Color Styling
