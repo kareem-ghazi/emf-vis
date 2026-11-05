@@ -1,7 +1,14 @@
 {
   "name": "emf-visualizer",
   "version": "1.0.0",
-  "description": "3D Electromagnetic Fields Web Visualizer",
+  "description": "3D Electromagnetic Fields & Vector Calculus Web Visualizer",
+  "author": "Kareem Ghazi",
+  "license": "MIT",
+  "homepage": "https://kareem-ghazi.github.io/emf-visualizer/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kareem-ghazi/emf-visualizer.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",

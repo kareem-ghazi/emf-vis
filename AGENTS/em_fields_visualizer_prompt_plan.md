@@ -6,7 +6,7 @@ You are a Senior Scientific Computing Developer and 3D Graphics Programmer. Your
 
 The application contains **EXACTLY 4 specialized educational topics**, designed with interactive visual clarity, high-fidelity aesthetic modeling (including 3Blue1Brown style), and rigorous mathematical backing:
 
-1. **Coordinate Systems**:
+1. **Coordinate Systems** (`src/topics/coords.js`):
    - Visualize how Cartesian (rectangular), circular cylindrical, and spherical coordinate systems define points using intersecting surfaces (planes, cylinders, cones, and spheres).
    - Robust cone geometry ($\theta = \text{const}$) with slant-length parameterization ensuring smooth continuity across all polar angles $\theta \in (0, \pi)$ without disappearing when crossing $\theta = 90^\circ$.
    - Mathematical formulation panel containing strictly the differential elements: $d\vec{l}$, $d\vec{S}$, and $dv$.
@@ -14,7 +14,7 @@ The application contains **EXACTLY 4 specialized educational topics**, designed 
    - Comprehensive unit vector transformation matrices for the other two coordinate systems.
    - Simplified Scientific Calculator dedicated solely to coordinate conversions, dynamically reflecting the source coordinate system inputs ($x, y, z$, $\rho, \phi, z$, or $r, \theta, \phi$) with enlarged math symbols.
 
-2. **The Gradient ($\nabla V$)**:
+2. **The Gradient ($\nabla V$)** (`src/topics/gradient.js`):
    - Visualized as the path of steepest ascent on a 3D topographical scalar potential hill in Cartesian coordinates.
    - Dynamic 3D surface-tangent gradient vector arrows pointing uphill, strictly perpendicular to concentric equipotential contour rings ($V = \text{const}$).
    - Smooth ascending streamlines and non-flashing soft glow particles with individual continuous progression and summit fade-out.
@@ -22,7 +22,7 @@ The application contains **EXACTLY 4 specialized educational topics**, designed 
    - Streamlined HUD displaying gradient formulation for Cartesian, Cylindrical, and Spherical coordinate systems, active hill profile, and peak altitude only.
    - Built-in Natural Keyboard Gradient Calculator supporting Cartesian, Cylindrical, and Spherical coordinate systems with dynamic metric scaling factors, live KaTeX LaTeX preview, and real-time scalar potential $V(P)$ and gradient evaluation without focus loss.
 
-3. **Divergence ($\nabla \cdot \vec{A}$)**:
+3. **Divergence ($\nabla \cdot \vec{A}$)** (`src/topics/divergence.js`):
    - Visualized as the net outward flow of flux from sources and inward flow to sinks.
    - Designed to match **Reference Image 1**: deep dark background, dense 2D vector field grid, and **4 controllable points on the 2D Cartesian plane** (Sources with outward radial white arrows and yellow halo; Sinks with inward radial white arrows and blue convergence; Zero-strength points with slate neutral aura).
    - Locked 2D canvas controls: strictly disables rotation and panning, allowing only mouse wheel zoom for an authentic 2D planar perspective, with bottom-left navigation hint displaying `Scroll: Zoom`.
@@ -33,7 +33,7 @@ The application contains **EXACTLY 4 specialized educational topics**, designed 
    - Vector Function Scientific Calculator: matching the format of the Gradient calculator with coordinate systems (Cartesian, Cylindrical, Spherical), vector components ($A_x, A_y, A_z$ / $A_\rho, A_\phi, A_z$ / $A_r, A_\theta, A_\phi$), live KaTeX formula preview, evaluation point inputs, and real-time evaluation of $\nabla \cdot \vec{A}$, $\vec{A}(P)$, $|\vec{A}|$, and classification without focus loss.
    - Interactive Point Selection Pills (P1, P2, P3, P4) with position sliders ($X, Y$) and Source / Sink / Zero toggles.
 
-4. **The Curl ($\nabla \times \vec{A}$)**:
+4. **The Curl ($\nabla \times \vec{A}$)** (`src/topics/curl.js`):
    - Visualized as local rotation, swirl, and vorticity of a vector field.
    - Designed to match **Reference Image 2 (3Blue1Brown Aesthetic)**: deep dark background with fiery red $\to$ orange $\to$ yellow streamlines, **4 controllable vortex centers on the 2D Cartesian plane** (2 counter-clockwise, 2 clockwise, with zero-rotation support).
    - Locked 2D top-down canvas controls with zoom-only interaction (`Scroll: Zoom`).
@@ -47,11 +47,13 @@ The application contains **EXACTLY 4 specialized educational topics**, designed 
 
 ## 2. STRICT SIMPLICITY & ANTI-BLOAT CONSTRAINTS
 
-* **Tech Stack**: Vanilla JavaScript (ES6 Modules), HTML5, CSS3, Three.js (r160), KaTeX (0.16.9) for live LaTeX math rendering in HUD and calculators, Vite (Dev Server / Bundler).
-* **Cartesian Default & Clean Vector Operators**: Vector operator visualizers (Gradient, Divergence, Curl) operate on standard Cartesian coordinates and have **no probe ball**, focusing purely on the continuous field lines, potential topography, and multi-point dynamics.
+* **Tech Stack**: Vanilla JavaScript (ES Modules), HTML5, CSS3, Three.js (r160), KaTeX (0.16.9) for live LaTeX math rendering in HUD and calculators, Vite (Dev Server / Bundler).
+* **Cartesian Default & Clean Vector Operators**: Vector operator visualizers (Gradient, Divergence, Curl) operate on standard Cartesian coordinates and have **no probe ball**, focusing purely on continuous field lines, potential topography, and multi-point dynamics.
 * **Top-Down Perspective Alignment**: Divergence and Curl visualizers automatically orient the camera to a clean top-down $(X, Y)$ plane view matching Image 1 and Image 2 reference aesthetics.
 * **No Placeholders or TODOs**: Complete, verified, and self-contained implementation with 0 console warnings or stubs.
-* **Uniform Module Contract**: Every file inside `topics/*.js` exports the standard 3-function interface:
+* **Standard `src/` Directory Layout**: Modularized code inside `src/` with `main.js`, `math.js`, `ui.js`, `style.css`, and `topics/`.
+* **GitHub Pages Ready**: `vite.config.js` with `base: './'` and `.github/workflows/deploy.yml` for automated GitHub Pages continuous deployment.
+* **Uniform Module Contract**: Every file inside `src/topics/*.js` exports the standard 3-function interface:
   ```javascript
   export function init(group, coordSystem, params) { /* build 3D/2D meshes into group */ }
   export function update(time, coordSystem, params) { /* animate particles, streamlines, & fields */ }
@@ -72,7 +74,7 @@ The application contains **EXACTLY 4 specialized educational topics**, designed 
                                             | (DOM Input Events)
                                             v
 +---------------------------------------------------------------------------------------+
-|                               MAIN CONTROLLER (main.js)                               |
+|                               MAIN CONTROLLER (src/main.js)                           |
 |  - Manages active topic module, camera perspective (3D angled vs. 2D top-down)        |
 |  - Runs requestAnimationFrame() render loop and animation timing                      |
 |  - Deeply disposes geometries, materials, and textures on topic swap                  |
@@ -80,7 +82,7 @@ The application contains **EXACTLY 4 specialized educational topics**, designed 
                       |                                     |
                       v                                     v
 +-------------------------------------+   +---------------------------------------------+
-|        MATH ENGINE (math.js)        |   |           UI CONTROLLER (ui.js)             |
+|        MATH ENGINE (src/math.js)    |   |           UI CONTROLLER (src/ui.js)         |
 |  - Orthogonal coordinate transforms |   |  - Real-time KaTeX HUD equations & readouts |
 |  - Curvilinear unit vector bases    |   |  - 4-Point Plane Controls (Images 1 & 2)    |
 |  - Vector magnitudes & directions   |   |  - 7 Reactive Scientific Calculators        |
@@ -89,53 +91,10 @@ The application contains **EXACTLY 4 specialized educational topics**, designed 
                       | (3D/2D Geometries, Vector Fields, & Particles)
                       v
 +---------------------------------------------------------------------------------------+
-|                                 THE 4 TOPIC MODULES                                   |
+|                                 THE 4 TOPIC MODULES (src/topics/)                     |
 |  1. coords.js     (Cartesian, Cylindrical, Spherical, Intersecting Surfaces, dv)      |
 |  2. gradient.js   (Topographical Potential Hill, Equipotential Rings, Streamlines)     |
 |  3. divergence.js (Image 1 Style: 4-Point Sources/Sinks, White Arrows, Fluid Streams) |
 |  4. curl.js       (Image 2 Style: 4 Vortices, 3Blue1Brown Heat Colormap, White Loops) |
 +---------------------------------------------------------------------------------------+
 ```
-
----
-
-## 4. DIRECTORY STRUCTURE
-
-```
-./
-├── .gitignore            # Ignores node_modules/, dist/, logs/, OS & IDE files
-├── package.json          # Manifest with dev & build scripts
-├── index.html            # Main UI layout, controls, 3D viewport, KaTeX HUD & Calculators
-├── style.css             # Dark-mode scientific UI styling, pills, calculator tabs
-├── main.js               # Three.js scene, camera, OrbitControls, topic loader & disposer
-├── math.js               # Coordinate transforms, metric factors, & vector calculus engine
-├── ui.js                 # DOM bindings, 4-point plane controls, calculators, KaTeX HUD
-├── AGENTS/
-│   ├── em_fields_visualizer_prompt_plan.md   # Master plan & progress tracking
-│   └── project_state.md                      # Live project state documentation
-└── topics/
-    ├── coords.js         # 1. Coordinate Systems
-    ├── gradient.js       # 2. The Gradient (∇V Topographical Ascent)
-    ├── divergence.js     # 3. Divergence (∇·A 4-Point Sources & Sinks)
-    └── curl.js           # 4. The Curl (∇×A 3Blue1Brown 4-Vortex Vorticity)
-```
-
----
-
-## 5. PROGRESS & VERIFICATION CHECKLIST
-
-- [x] Phase 1: Core Framework, Physics Z-up Orientation, and Theme Setup
-- [x] Phase 2: Coordinate Systems & Curvilinear Geometries (Cartesian, Cylindrical, Spherical)
-- [x] Phase 3: The Gradient Visualizer (Topographical Scalar Potential Hill, Equipotential Rings)
-- [x] Phase 4: Divergence Visualizer (Matching Image 1: 4 Controllable Points, Dense Field, Inward/Outward Arrows)
-- [x] Phase 5: Curl Visualizer (Matching Image 2: 3Blue1Brown Aesthetic, 4 Controllable Vortices, Swirling Loops)
-- [x] Phase 6: Full Suite of Scientific Calculators (Coord Converter, Unit Vector, Magnitude, Direction, Grad, Div, Curl)
-- [x] Phase 7: Vite Production Build & npm Audit Security Verification (0 vulnerabilities)
-- [x] Phase 8: AGENTS Documentation Synchronization
-- [x] Phase 9: Persistent Input Focus across Calculator Suite & Face View Camera Positioning for Probe Point P
-- [x] Phase 10: Dynamic Hill Spread across All 3 Profiles, Gradient Arrow Occlusion Resolution, and Calculator Expression Parser Fix
-- [x] Phase 11: Scientific Number Formatting (Exponential Notation for Extreme Coordinates, Zero-Artifact Elimination) and Balanced Parentheses Formula Parser for KaTeX Display
-- [x] Phase 12: Algebraic Juxtaposition Multiplication (Implicit Multiplication for Adjacent Variables e.g. xy, zx, 2zx, 2xy, zx^2, Power Variable Products)
-- [x] Phase 13: Gradient Multi-Coordinate Calculator Support (Cartesian, Cylindrical, Spherical with Metric Scaling Factors), Divergence Subtitle Clutter Removal, and Red Sink Divergence Result Color Styling
-- [x] Phase 14: Non-Double-Escaped Greek Symbol KaTeX Rendering for Rho and Phi in Gradient and Divergence Functions, and Tri-Color Divergence Palette (Green Source, Red Sink, Amber Zero)
-- [x] Phase 15: Curl HUD Cross Product Matrices & Conservative State Synchronization, Canvas Floating Label Cleanup, Divergence-Consistent Vortex Color Scheme (with Red CCW), Zero-Rotation Curl Control, and Multi-Coordinate Curl Calculator Suite
