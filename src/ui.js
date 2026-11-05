@@ -84,6 +84,7 @@ export class UIController {
       // HUD
       hudCard: document.getElementById('hud-card'),
       hudCollapseBtn: document.getElementById('hud-collapse-btn'),
+      hudHeader: document.querySelector('.hud-header'),
       hudTopicTag: document.getElementById('hud-topic-tag'),
       hudTitle: document.getElementById('hud-title'),
       katexFormula: document.getElementById('katex-formula'),
@@ -91,7 +92,14 @@ export class UIController {
       topicDetailSection: document.getElementById('topic-detail-section'),
       topicDetailTitle: document.getElementById('topic-detail-title'),
       katexDetail: document.getElementById('katex-detail'),
-      canvasNavHint: document.getElementById('canvas-nav-hint')
+      canvasNavHint: document.getElementById('canvas-nav-hint'),
+
+      // Mobile Drawer Controls
+      sidebar: document.getElementById('sidebar'),
+      sidebarBackdrop: document.getElementById('sidebar-backdrop'),
+      sidebarCloseBtn: document.getElementById('sidebar-close-btn'),
+      mobileSidebarToggle: document.getElementById('mobile-sidebar-toggle'),
+      mobileViewCanvasBtn: document.getElementById('mobile-view-canvas-btn')
     };
 
     // State
@@ -404,9 +412,52 @@ export class UIController {
     });
 
     // HUD Collapse
-    this.dom.hudCollapseBtn.addEventListener('click', () => {
+    const toggleHUDCollapse = () => {
       this.dom.hudCard.classList.toggle('collapsed');
       this.dom.hudCollapseBtn.textContent = this.dom.hudCard.classList.contains('collapsed') ? '+' : '_';
+    };
+    this.dom.hudCollapseBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleHUDCollapse();
+    });
+    if (this.dom.hudHeader) {
+      this.dom.hudHeader.addEventListener('click', (e) => {
+        if (e.target !== this.dom.hudCollapseBtn) {
+          toggleHUDCollapse();
+        }
+      });
+    }
+
+    // Auto-collapse HUD on mobile screens (<= 768px) on load
+    if (window.innerWidth <= 768) {
+      this.dom.hudCard.classList.add('collapsed');
+      this.dom.hudCollapseBtn.textContent = '+';
+    }
+
+    // Mobile Sidebar Drawer Handlers
+    const openMobileSidebar = () => {
+      if (this.dom.sidebar) this.dom.sidebar.classList.add('mobile-open');
+      if (this.dom.sidebarBackdrop) this.dom.sidebarBackdrop.classList.add('active');
+    };
+    const closeMobileSidebar = () => {
+      if (this.dom.sidebar) this.dom.sidebar.classList.remove('mobile-open');
+      if (this.dom.sidebarBackdrop) this.dom.sidebarBackdrop.classList.remove('active');
+    };
+
+    if (this.dom.mobileSidebarToggle) {
+      this.dom.mobileSidebarToggle.addEventListener('click', openMobileSidebar);
+    }
+    if (this.dom.sidebarCloseBtn) {
+      this.dom.sidebarCloseBtn.addEventListener('click', closeMobileSidebar);
+    }
+    if (this.dom.sidebarBackdrop) {
+      this.dom.sidebarBackdrop.addEventListener('click', closeMobileSidebar);
+    }
+    if (this.dom.mobileViewCanvasBtn) {
+      this.dom.mobileViewCanvasBtn.addEventListener('click', closeMobileSidebar);
+    }
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeMobileSidebar();
     });
   }
 
@@ -421,6 +472,15 @@ export class UIController {
    */
   updateTopicVisibility() {
     const topic = this.state.topic;
+
+    // Update document title dynamically based on active concept
+    const TOPIC_TITLES = {
+      coords: 'emf.vis — Coordinate Systems',
+      gradient: 'emf.vis — The Gradient',
+      divergence: 'emf.vis — The Divergence',
+      curl: 'emf.vis — The Curl'
+    };
+    document.title = TOPIC_TITLES[topic] || 'emf.vis';
 
     this.dom.coordsControlsSection.style.display = topic === 'coords' ? 'block' : 'none';
     this.dom.gradientControlsSection.style.display = topic === 'gradient' ? 'block' : 'none';

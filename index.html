@@ -4,7 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>emf.vis</title>
+  <title>emf.vis — Coordinate Systems</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
 
   <!-- KaTeX CSS & JS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
@@ -35,7 +36,10 @@
     <!-- Left Sidebar Controls -->
     <aside id="sidebar">
       <header class="app-header">
-        <div class="logo-badge">EMF.VIS</div>
+        <div class="app-header-top">
+          <div class="logo-badge">EMF.VIS</div>
+          <button id="sidebar-close-btn" class="mobile-close-btn" aria-label="Close Controls">✕</button>
+        </div>
         <h1>Electromagnetic Fields Visualizer</h1>
         <p class="subtitle">An interactive coordinate system & vector calculus visualizer.</p>
       </header>
@@ -221,14 +225,28 @@
       </section>
 
       <footer class="sidebar-footer">
+        <button id="mobile-view-canvas-btn" class="secondary-btn mobile-only-btn" style="margin-bottom: 8px; border-color: rgba(56, 189, 248, 0.4); color: var(--text-highlight);">View 3D Canvas ➔</button>
         <button id="reset-camera-btn" class="secondary-btn">Reset Camera View</button>
         <div class="version-tag">Vanilla JS · Three.js · KaTeX</div>
       </footer>
     </aside>
 
+    <!-- Mobile Drawer Backdrop Overlay -->
+    <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
     <!-- 3D WebGL Viewport -->
     <main id="viewport-container">
       <div id="canvas-wrapper"></div>
+
+      <!-- Mobile Floating Menu Toggle -->
+      <button id="mobile-sidebar-toggle" class="mobile-floating-btn" aria-label="Toggle Controls Menu">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+        <span>Controls</span>
+      </button>
 
       <!-- KaTeX & Information HUD Overlay -->
       <div id="hud-card" class="hud-panel">

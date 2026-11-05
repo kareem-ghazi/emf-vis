@@ -21,6 +21,14 @@ Key Highlights & Recent Architectural Improvements:
 - **GitHub Pages Ready**: Configured `vite.config.js` with `base: './'` ensuring fully relative asset resolution (`./assets/...`) on GitHub Pages subpaths.
 - **Automated CI/CD Workflow**: Added `.github/workflows/deploy.yml` using modern GitHub Actions (`configure-pages`, `upload-pages-artifact`, `deploy-pages`) for automated builds and deployment on push to `main`.
 - **Comprehensive Documentation**: Complete `README.md` and `LICENSE.txt` (MIT License © 2026 Kareem Ghazi).
+- **Custom Vector SVG Favicon**: Sleek Nabla ∇ and circulating flux field icon (`public/favicon.svg` and `favicon.svg`) loaded via `<link rel="icon" type="image/svg+xml" href="./favicon.svg">`, replacing default wireframe browser icon.
+- **Dynamic Concept Tab Title**: Automatically updates the browser document title to match the active concept with em-dash separator (e.g. `emf.vis — The Gradient`, `emf.vis — Coordinate Systems`, `emf.vis — The Divergence`, `emf.vis — The Curl`).
+- **Fully Responsive Mobile UI**:
+  - Full-screen 3D canvas viewport with touch gesture support (`touch-action: none` on WebGL canvas, `touch-action: manipulation` on page body).
+  - Floating glassmorphic `Controls` pill button (`.mobile-floating-btn`) positioned unobtrusively on the top-left of the canvas.
+  - Slide-out drawer sidebar (`#sidebar.mobile-open`) with smooth bezier transition, dark backdrop overlay (`#sidebar-backdrop`), mobile close button (`#sidebar-close-btn`), and "View 3D Canvas" dismissal button.
+  - Collapsible HUD panel (`#hud-card`) that auto-collapses on mobile screens (`<= 768px`) on initial load and expands with a single tap on the header.
+  - Touch-optimized slider controls, enlarged tap targets, and horizontal KaTeX formula scrolling preventing layout breaking on screens from 320px to 768px.
 - **Zero Vulnerabilities & Clean Production Build**: Verified with `npm run build` (built in ~2.8s) and `0 vulnerabilities`.
 - **Full Scientific Calculator & Converter Suite**:
   - *Coordinate Converter*: Real-time conversions between Cartesian $(x,y,z)$, Cylindrical $(\rho,\phi,z)$, and Spherical $(r,\theta,\phi)$ with degrees/radians support.

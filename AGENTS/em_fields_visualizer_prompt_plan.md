@@ -52,6 +52,8 @@ The application contains **EXACTLY 4 specialized educational topics**, designed 
 * **Top-Down Perspective Alignment**: Divergence and Curl visualizers automatically orient the camera to a clean top-down $(X, Y)$ plane view matching Image 1 and Image 2 reference aesthetics.
 * **No Placeholders or TODOs**: Complete, verified, and self-contained implementation with 0 console warnings or stubs.
 * **Standard `src/` Directory Layout**: Modularized code inside `src/` with `main.js`, `math.js`, `ui.js`, `style.css`, and `topics/`.
+* **Mobile & Responsive Experience**: Full-screen 3D canvas with touch interaction, slide-out sidebar drawer, floating controls toggle, auto-collapsing HUD, and mobile-friendly inputs.
+* **Vector SVG Favicon & Dynamic Concept Titles**: Custom Nabla/flux SVG tab icon and automatic browser title synchronization (`emf.vis — The Gradient`, etc.).
 * **GitHub Pages Ready**: `vite.config.js` with `base: './'` and `.github/workflows/deploy.yml` for automated GitHub Pages continuous deployment.
 * **Uniform Module Contract**: Every file inside `src/topics/*.js` exports the standard 3-function interface:
   ```javascript
