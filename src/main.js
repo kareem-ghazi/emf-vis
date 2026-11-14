@@ -108,16 +108,48 @@ class AppController {
     this.scene.add(this.axesHelper);
   }
 
+  /**
+   * Calculates the required camera Z distance for 2D planar topics (Divergence & Curl)
+   * to guarantee all points, vortices, indicator rings, and streamlines fit inside
+   * the visible viewport on any screen aspect ratio (mobile portrait, tablet, or desktop).
+   */
+  get2DCameraDistance() {
+    const width = this.container.clientWidth || window.innerWidth;
+    const height = this.container.clientHeight || window.innerHeight;
+    const aspect = width / (height || 1);
+
+    // Required half-extents in world units to view all 4 points/vortices with arrows & comfortable padding:
+    // Divergence points: x = ±1.8 (plus rings/arrows r ≈ 0.9 => 2.7)
+    // Curl vortices: x = ±2.2 (plus rings/arrows r ≈ 0.85 => 3.05, streamlines out to 3.4)
+    const requiredHalfWidth = 3.6;
+    const requiredHalfHeight = 2.8;
+    const tanFovHalf = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
+
+    const distForWidth = requiredHalfWidth / (tanFovHalf * aspect);
+    const distForHeight = requiredHalfHeight / tanFovHalf;
+
+    // Default distance is 7.8 on desktop (aspect >= 1.4), scaling up proportionally on narrow mobile portrait
+    return Math.max(7.8, distForWidth, distForHeight);
+  }
+
   resetCamera(topicId = this.currentTopicId) {
+    const width = this.container.clientWidth || window.innerWidth;
+    const height = this.container.clientHeight || window.innerHeight;
+    const aspect = width / (height || 1);
+    const portraitScale = aspect < 1.0 ? Math.min(2.0, 0.95 / aspect) : 1.0;
+
     if (topicId === 'divergence' || topicId === 'curl') {
       this.camera.up.set(0, 1, 0);
-      this.camera.position.set(0, 0, 7.8);
+      const zDist = this.get2DCameraDistance();
+      this.camera.position.set(0, 0, zDist);
       this.controls.target.set(0, 0, 0);
       // Divergence & Curl: 2D top-down view - disable rotate, allow pan & zoom
       this.controls.enableRotate = false;
       this.controls.enablePan = true;
       this.controls.enableZoom = true;
       this.controls.screenSpacePanning = true;
+      this.controls.maxDistance = 60;
+      this.controls.minDistance = 1;
       this.controls.mouseButtons = {
         LEFT: THREE.MOUSE.PAN,
         MIDDLE: THREE.MOUSE.DOLLY,
@@ -129,12 +161,14 @@ class AppController {
       };
     } else if (topicId === 'coords') {
       this.camera.up.set(0, 0, 1);
-      this.camera.position.set(5.8, 5.8, 4.5);
+      this.camera.position.set(5.8 * portraitScale, 5.8 * portraitScale, 4.5 * portraitScale);
       this.controls.target.set(0.75, 0.75, 0.75);
       this.controls.enableRotate = true;
       this.controls.enablePan = true;
       this.controls.enableZoom = true;
       this.controls.screenSpacePanning = true;
+      this.controls.maxDistance = 60;
+      this.controls.minDistance = 1;
       this.controls.mouseButtons = {
         LEFT: THREE.MOUSE.ROTATE,
         MIDDLE: THREE.MOUSE.DOLLY,
@@ -147,12 +181,14 @@ class AppController {
     } else {
       // gradient
       this.camera.up.set(0, 0, 1);
-      this.camera.position.set(6.0, 6.0, 5.0);
+      this.camera.position.set(6.0 * portraitScale, 6.0 * portraitScale, 5.0 * portraitScale);
       this.controls.target.set(0, 0, 0.5);
       this.controls.enableRotate = true;
       this.controls.enablePan = true;
       this.controls.enableZoom = true;
       this.controls.screenSpacePanning = true;
+      this.controls.maxDistance = 60;
+      this.controls.minDistance = 1;
       this.controls.mouseButtons = {
         LEFT: THREE.MOUSE.ROTATE,
         MIDDLE: THREE.MOUSE.DOLLY,
@@ -169,9 +205,17 @@ class AppController {
   onWindowResize() {
     const width = this.container.clientWidth;
     const height = this.container.clientHeight;
+    if (width === 0 || height === 0) return;
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
+
+    // In 2D topics (Divergence & Curl), update camera Z distance dynamically on resize / orientation change
+    if (this.currentTopicId === 'divergence' || this.currentTopicId === 'curl') {
+      const zDist = this.get2DCameraDistance();
+      this.camera.position.z = zDist;
+      this.controls.update();
+    }
   }
 
   /**

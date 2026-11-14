@@ -2,7 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE.txt)
 [![Deploy to GitHub Pages](https://github.com/kareem-ghazi/emf-vis/actions/workflows/deploy.yml/badge.svg)](https://github.com/kareem-ghazi/emf-vis/actions/workflows/deploy.yml)
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-brightgreen)](https://kareem-ghazi.github.io/emf-vis
+[![Tests: Vitest](https://img.shields.io/badge/Tests-31%20Passing-brightgreen.svg)](tests/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-brightgreen)](https://kareem-ghazi.github.io/emf-vis/)
 
 **emf.vis** is a real-time, interactive 3D WebGL application designed to demystify electromagnetic fields and vector calculus concepts. Built with modern Vanilla JavaScript, Three.js, and KaTeX, it provides intuitive spatial visualizations, rigorous mathematical formulations, and interactive scientific calculators for coordinate systems, gradients, divergence, and curl.
 
@@ -74,11 +75,16 @@ Explore the visualizer live in your browser:
 emf-vis/
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml        # Automatic GitHub Pages deployment workflow
+│       └── deploy.yml        # CI/CD: Automated Vitest runs & GitHub Pages deployment
 ├── AGENTS/                   # Agent memory, planning, and state tracking
 │   ├── em_fields_visualizer_prompt_plan.md
 │   └── project_state.md
+├── docs/                     # Technical documentation
+│   ├── ARCHITECTURE.md       # Architecture, camera math, and data flow
+│   ├── MATHEMATICAL_FORMULATIONS.md # Vector calculus & coordinate equations
+│   └── TESTING.md            # Unit testing guide & test architecture
 ├── dist/                     # Optimized production bundle (created on build)
+├── public/                   # Static assets & favicon.svg
 ├── src/                      # Application source code
 │   ├── topics/               # Individual visualizer topic modules
 │   │   ├── coords.js         # Coordinate Systems topic
@@ -89,11 +95,38 @@ emf-vis/
 │   ├── math.js               # Analytical & numerical vector calculus engine
 │   ├── style.css             # Glassmorphic dark UI design system
 │   └── ui.js                 # UI controls, HUD updates, & calculators
+├── tests/                    # Vitest unit test suite (31 tests)
+│   ├── camera.test.js        # Mobile camera framing & frustum tests
+│   └── math.test.js          # Calculus transformations & operator tests
 ├── index.html                # Main entry HTML
 ├── vite.config.js            # Vite build configuration (base: './')
-├── package.json              # Project dependencies & scripts
+├── package.json              # Project dependencies & test scripts
 ├── LICENSE.txt               # MIT License (2026 Kareem Ghazi)
 └── README.md                 # Project documentation
+```
+
+---
+
+## 📚 Technical Documentation
+
+Comprehensive documentation is available in the [`docs/`](docs/) directory:
+- 🏗️ **[Architecture & Design (`docs/ARCHITECTURE.md`)](docs/ARCHITECTURE.md)**: Zero-framework ESM design, Three.js scene management, memory cleanup, and adaptive mobile camera framing.
+- 📐 **[Mathematical Formulations (`docs/MATHEMATICAL_FORMULATIONS.md`)](docs/MATHEMATICAL_FORMULATIONS.md)**: Curvilinear scale factors, metric tensors, coordinate transformations, and differential operators.
+- 🧪 **[Testing Guide (`docs/TESTING.md`)](docs/TESTING.md)**: Automated unit testing architecture and test suite overview.
+
+---
+
+## 🧪 Unit Testing
+
+The project includes an automated unit test suite with 31 tests covering coordinate transformations, metric scale factors, vector identities, and mobile camera frustum calculations:
+
+```bash
+# Run all unit tests
+npm test
+
+# Run tests in interactive watch mode
+npm run test:watch
+```
 ```
 
 ---
