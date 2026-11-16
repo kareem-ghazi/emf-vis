@@ -127,7 +127,6 @@ npm test
 # Run tests in interactive watch mode
 npm run test:watch
 ```
-```
 
 ---
 
@@ -187,7 +186,7 @@ npm run preview
 This repository includes an automated GitHub Actions workflow (`.github/workflows/deploy.yml`) that builds and publishes the visualizer to GitHub Pages whenever changes are pushed to the `main` branch.
 
 ### Enabling GitHub Pages in Repository Settings:
-1. Go to your GitHub repository: `https://github.com/kareem-ghazi/emf-vis`.
+1. Go to your GitHub repository.
 2. Navigate to **Settings** > **Pages**.
 3. Under **Build and deployment** > **Source**, select **GitHub Actions**.
 4. The deployment will automatically run on the next push to `main`.
