@@ -18,54 +18,27 @@ Explore the visualizer live in your browser:
 
 ## 🧭 Key Features & Topics
 
-### 1. Coordinate Systems
-- **Three Supported Systems**:
-  - **Cartesian** $(x, y, z)$
-  - **Circular Cylindrical** $(\rho, \phi, z)$
-  - **Spherical** $(r, \theta, \phi)$
-- **Interactive Surfaces**: Intersecting constant coordinate surfaces (planes, cylinders, spheres, cones) defining the position of probe point $P$.
-- **Local Unit Vectors**: Dynamic basis vectors ($\hat{a}_x, \hat{a}_y, \hat{a}_z$, $\hat{a}_\rho, \hat{a}_\phi, \hat{a}_z$, $\hat{a}_r, \hat{a}_\theta, \hat{a}_\phi$) showing how orthogonal directions change orientation in curvilinear space.
-- **Differential Volume Element ($dV$)**: Visualized volume element defined by metric scale factors:
-  $$dV = h_1 h_2 h_3 \, du_1 du_2 du_3$$
-- **Multi-Coordinate Converter & Calculator**: Real-time cross-system point conversion, unit vector dot-product projections, and metric factor calculations.
+emf.vis covers the foundations of vector calculus and electromagnetic field theory across 4 interactive modules:
 
----
+### 1. Coordinate Systems
+- **Three Core Systems**: Real-time switching between **Cartesian** $(x, y, z)$, **Cylindrical** $(\rho, \phi, z)$, and **Spherical** $(r, \theta, \phi)$ representations.
+- **Dynamic Geometric Visuals**: Intersecting constant-coordinate surfaces, local orthonormal basis vectors ($\hat{a}_i$), and differential volume elements ($dV$).
+- **Multi-System Point Converter**: Live cross-coordinate translations, metric scale factors ($h_i$), and projection products.
 
 ### 2. The Gradient ($\nabla V$)
-- **Steepest Ascent Topography**: 3D scalar potential hills $V(x, y)$ rendered as smooth heightmaps with dynamic contour rings (equipotential curves).
-- **Multiple Hill Profiles**:
-  - **Single Peak**: Symmetric Gaussian hill $V = V_0 e^{-(x^2 + y^2)/\sigma^2}$
-  - **Twin Peaks**: Bimodal potential landscape
-  - **Volcano Crater**: Annular caldera with central depression
-- **Glowing Ascent Streamlines**: Non-flashing gradient trajectories tracing paths of maximum slope with animated pulse particles climbing smoothly to summits.
-- **Surface Tangent Gradient Vectors**: 3D vector arrows pointing in the direction of steepest rate of change:
-  $$\nabla V = \sum_{i=1}^3 \frac{1}{h_i} \frac{\partial V}{\partial u_i} \hat{a}_{u_i}$$
-- **Full Gradient Scientific Calculator**: Evaluates custom scalar functions $V(u_1, u_2, u_3)$ across Cartesian, Cylindrical, and Spherical coordinates with natural keyboard math parsing and auto-rendered KaTeX preview.
-
----
+- **Topographical Potential Hills**: 3D heightmaps for Single Peak Gaussian, Twin Peaks, and Volcano Crater potential profiles.
+- **Steepest Ascent Visuals**: Equipotential contour rings, tangent gradient vector arrows, and animated particle streamlines ascending toward local maxima.
+- **Custom Potential Calculator**: Real-time evaluation of user-defined scalar functions $V(u_1, u_2, u_3)$ across all three coordinate systems with live KaTeX rendering.
 
 ### 3. The Divergence ($\nabla \cdot \vec{A}$)
-- **Fluid Flux Analogy**: Visualizes net outward flux per unit volume from sources (faucets) and sinks (drains).
-- **4 Interactive Planar Points**: Independent coordinate and strength controls for 4 charge/mass flux centers, numbered in contrasting colors:
-  - **Sources ($\nabla \cdot \vec{A} > 0$)**: Outward white directional rings and radiant amber particles.
-  - **Sinks ($\nabla \cdot \vec{A} < 0$)**: Inward white directional rings and convergent cyan/blue particles.
-  - **Solenoidal ($\nabla \cdot \vec{A} = 0$)**: Zero divergence / eddyless field mode.
-- **Orthographic Canvas Navigation**: Locked 2D overhead camera with smooth zoom controls.
-- **HUD Formulations**: Complete mathematical expressions across Cartesian, Cylindrical, and Spherical systems:
-  $$\nabla \cdot \vec{A} = \frac{1}{h_1 h_2 h_3} \left[ \frac{\partial (h_2 h_3 A_1)}{\partial u_1} + \frac{\partial (h_1 h_3 A_2)}{\partial u_2} + \frac{\partial (h_1 h_2 A_3)}{\partial u_3} \right]$$
-- **Vector Divergence Calculator**: Evaluates arbitrary 3-component vector fields $\vec{A}(u_1, u_2, u_3)$ across all three coordinate systems.
-
----
+- **Fluid Flux Analogy**: Visual representation of net outward flux (sources) and net inward flux (sinks) per unit volume.
+- **4 Interactive Centers**: Configurable source and sink points with radiant/convergent particle flow and solenoidal (zero-divergence) mode.
+- **Vector Divergence Calculator**: Real-time analytical evaluation and classification (Net Source, Net Sink, or Incompressible) for arbitrary 3D vector fields.
 
 ### 4. The Curl ($\nabla \times \vec{A}$)
-- **Vorticity & Swirl**: Visualizes micro-circulation and local paddle-wheel rotation within a vector field.
-- **4 Interactive Vortex Centers**: Controllable vortex positions and circulation strengths:
-  - **Counter-Clockwise ($\nabla \times \vec{A} > 0$)**: Highlighted in vibrant red with circulating loops.
-  - **Clockwise ($\nabla \times \vec{A} < 0$)**: Highlighted in electric blue with reverse circulating loops.
-  - **Zero Rotation ($\nabla \times \vec{A} = 0$)**: Purely irrotational, conservative field mode.
-- **HUD Determinant Matrices**: KaTeX-rendered cross-product determinant formulas for Cartesian, Cylindrical, and Spherical systems:
-  $$\nabla \times \vec{A} = \frac{1}{h_1 h_2 h_3} \begin{vmatrix} h_1 \hat{a}_1 & h_2 \hat{a}_2 & h_3 \hat{a}_3 \\ \frac{\partial}{\partial u_1} & \frac{\partial}{\partial u_2} & \frac{\partial}{\partial u_3} \\ h_1 A_1 & h_2 A_2 & h_3 A_3 \end{vmatrix}$$
-- **Vector Curl Calculator**: Component-wise numerical curl evaluation across all 3 coordinate systems with live field magnitude and conservative state classification.
+- **Vorticity & Swirl**: Micro-circulation dynamics illustrating local paddle-wheel rotation and circulation.
+- **4 Interactive Vortex Centers**: Independent position and circulation controls for counter-clockwise, clockwise, and irrotational (curl-free) field states.
+- **Vector Curl Calculator**: Component-wise numerical curl evaluation across all coordinate systems with rotational orientation classification.
 
 ---
 
@@ -76,9 +49,10 @@ emf-vis/
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml        # CI/CD: Automated Vitest runs & GitHub Pages deployment
-├── AGENTS/                   # Agent memory, planning, and state tracking
-│   ├── em_fields_visualizer_prompt_plan.md
-│   └── project_state.md
+├── .archive/                 # Archived agent prompt plans and project state
+│   └── AGENTS/
+│       ├── em_fields_visualizer_prompt_plan.md
+│       └── project_state.md
 ├── docs/                     # Technical documentation
 │   ├── ARCHITECTURE.md       # Architecture, camera math, and data flow
 │   ├── MATHEMATICAL_FORMULATIONS.md # Vector calculus & coordinate equations
@@ -196,6 +170,4 @@ This repository includes an automated GitHub Actions workflow (`.github/workflow
 ## 📄 License
 
 This project is open-source software licensed under the [MIT License](LICENSE.txt).
-
-Copyright © 2026 **Kareem Ghazi**. All rights reserved.
 
