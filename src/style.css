@@ -128,6 +128,11 @@ body {
   border-color: rgba(56, 189, 248, 0.3);
 }
 
+/* In Desktop (Electron) build, hide landing page link */
+body.is-electron .home-link-btn {
+  display: none !important;
+}
+
 .logo-badge {
   display: inline-block;
   padding: 2px 7px;

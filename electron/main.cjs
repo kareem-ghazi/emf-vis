@@ -24,7 +24,7 @@ function createWindow() {
   const isDev = process.env.NODE_ENV === 'development' || process.argv.includes('--dev');
 
   if (isDev && process.env.VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+    mainWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}/app.html`);
   } else {
     // In production desktop app, load app.html directly for immediate visualizer access
     mainWindow.loadFile(path.join(__dirname, '../dist/app.html'));
@@ -43,6 +43,14 @@ function createWindow() {
     return { action: 'allow' };
   });
 
+  // Intercept navigation to prevent opening landing page inside desktop app
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (url.includes('index.html')) {
+      event.preventDefault();
+      mainWindow.loadFile(path.join(__dirname, '../dist/app.html'));
+    }
+  });
+
   setupMenu();
 
   mainWindow.on('closed', () => {
@@ -58,20 +66,11 @@ function setupMenu() {
       label: 'File',
       submenu: [
         {
-          label: 'Launch 3D Visualizer',
-          accelerator: 'CmdOrCtrl+1',
+          label: 'Reload Visualizer',
+          accelerator: 'CmdOrCtrl+R',
           click: () => {
             if (mainWindow) {
               mainWindow.loadFile(path.join(__dirname, '../dist/app.html'));
-            }
-          }
-        },
-        {
-          label: 'Show Landing Page',
-          accelerator: 'CmdOrCtrl+0',
-          click: () => {
-            if (mainWindow) {
-              mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
             }
           }
         },
@@ -137,24 +136,6 @@ function setupMenu() {
     {
       label: 'Help',
       submenu: [
-        {
-          label: 'Mathematical Formulations Docs',
-          click: () => {
-            shell.openExternal('https://github.com/kareem-ghazi/emf-vis/blob/main/docs/MATHEMATICAL_FORMULATIONS.md');
-          }
-        },
-        {
-          label: 'Architecture Documentation',
-          click: () => {
-            shell.openExternal('https://github.com/kareem-ghazi/emf-vis/blob/main/docs/ARCHITECTURE.md');
-          }
-        },
-        {
-          label: 'Online Live Visualizer',
-          click: () => {
-            shell.openExternal('https://kareem-ghazi.github.io/emf-vis/');
-          }
-        },
         {
           label: 'GitHub Repository',
           click: () => {

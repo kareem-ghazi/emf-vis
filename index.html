@@ -10,6 +10,7 @@
   <!-- KaTeX CSS & JS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 
   <!-- Google Fonts: Inter & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -94,12 +95,12 @@
         </div>
       </div>
 
-      <!-- Hero 3D Interactive Canvas -->
+      <!-- Hero 3D Interactive Canvas: The Gradient -->
       <div class="hero-canvas-card">
         <div id="hero-canvas-wrapper"></div>
         <div class="hero-canvas-overlay">
-          <span>Move cursor to interact with 3D vector streamlines</span>
-          <span class="badge">∇×A · ∇·A</span>
+          <span>Drag to rotate · Scroll to zoom</span>
+          <span class="badge">The Gradient · ∇V</span>
         </div>
       </div>
     </div>
@@ -153,7 +154,7 @@
             <div class="topic-icon-wrap">⛰️</div>
             <span class="topic-pill">SCALAR POTENTIAL</span>
           </div>
-          <h3 class="topic-card-title">2. The Gradient (∇V)</h3>
+          <h3 class="topic-card-title">2. The Gradient ($\nabla V$)</h3>
           <p class="topic-card-desc">
             Visualize the rate and direction of maximum increase of scalar potential hills. Watch animated particle streamlines climb paths of steepest ascent toward summits along tangent gradient vectors.
           </p>
@@ -183,14 +184,14 @@
             <div class="topic-icon-wrap">💧</div>
             <span class="topic-pill">FLUID FLUX</span>
           </div>
-          <h3 class="topic-card-title">3. The Divergence (∇·A)</h3>
+          <h3 class="topic-card-title">3. The Divergence ($\nabla \cdot \vec{A}$)</h3>
           <p class="topic-card-desc">
             Grasp net outward flux through an intuitive fluid flow simulation. Place and configure up to 4 interactive source and sink points to observe radiant expansion, convergent drainage, or solenoidal states.
           </p>
           <ul class="topic-feature-list">
             <li>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-              <span>4 interactive sources ($\nabla\cdot\vec{A} &gt; 0$) &amp; sinks ($\nabla\cdot\vec{A} &lt; 0$)</span>
+              <span>4 interactive sources ($\nabla\cdot\vec{A} \gt 0$) &amp; sinks ($\nabla\cdot\vec{A} \lt 0$)</span>
             </li>
             <li>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -213,7 +214,7 @@
             <div class="topic-icon-wrap">🌀</div>
             <span class="topic-pill">ROTATION &amp; SWIRL</span>
           </div>
-          <h3 class="topic-card-title">4. The Curl (∇×A)</h3>
+          <h3 class="topic-card-title">4. The Curl ($\nabla \times \vec{A}$)</h3>
           <p class="topic-card-desc">
             Explore rotational vorticity and paddle-wheel micro-rotation. Control 4 independent vortex centers with counter-clockwise, clockwise, or irrotational configurations complete with circulating streamlines.
           </p>
@@ -258,9 +259,9 @@
           <h5>Core Topics</h5>
           <ul>
             <li><a href="./app.html?topic=coords">Coordinate Systems</a></li>
-            <li><a href="./app.html?topic=gradient">The Gradient (∇V)</a></li>
-            <li><a href="./app.html?topic=divergence">The Divergence (∇·A)</a></li>
-            <li><a href="./app.html?topic=curl">The Curl (∇×A)</a></li>
+            <li><a href="./app.html?topic=gradient">The Gradient ($\nabla V$)</a></li>
+            <li><a href="./app.html?topic=divergence">The Divergence ($\nabla \cdot \vec{A}$)</a></li>
+            <li><a href="./app.html?topic=curl">The Curl ($\nabla \times \vec{A}$)</a></li>
           </ul>
         </div>
       </div>

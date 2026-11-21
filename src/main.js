@@ -316,5 +316,11 @@ class AppController {
 
 // Bootstrap application on DOM load
 window.addEventListener('DOMContentLoaded', () => {
+  if (
+    (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.isElectron) ||
+    /electron/i.test(navigator.userAgent)
+  ) {
+    document.body.classList.add('is-electron');
+  }
   new AppController();
 });
