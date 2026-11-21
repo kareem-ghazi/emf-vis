@@ -100,6 +100,34 @@ body {
   border-bottom: 1px solid var(--bg-card-border);
 }
 
+.app-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.home-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--bg-card-border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  transition: all 0.2s ease;
+}
+
+.home-link-btn:hover {
+  color: var(--primary-accent);
+  background: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
 .logo-badge {
   display: inline-block;
   padding: 2px 7px;
@@ -110,7 +138,6 @@ body {
   font-weight: 700;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  margin-bottom: 8px;
   color: #fff;
 }
 

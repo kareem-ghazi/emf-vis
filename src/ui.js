@@ -177,6 +177,18 @@ export class UIController {
       }
     };
 
+    // Check URL query parameters for topic pre-selection (e.g. app.html?topic=gradient)
+    if (typeof window !== 'undefined' && window.location) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlTopic = urlParams.get('topic');
+      if (urlTopic && ['coords', 'gradient', 'divergence', 'curl'].includes(urlTopic)) {
+        this.state.topic = urlTopic;
+        if (this.dom.topicSelect) {
+          this.dom.topicSelect.value = urlTopic;
+        }
+      }
+    }
+
     this.initEvents();
     this.updateTopicVisibility();
     this.renderCalculator();

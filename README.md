@@ -9,10 +9,11 @@
 
 ---
 
-## 🌐 Live Demo
+## 🌐 Live Demo & Landing Page
 
-Explore the visualizer live in your browser:  
-👉 **[https://kareem-ghazi.github.io/emf-vis/](https://kareem-ghazi.github.io/emf-vis/)**
+Explore the project live in your browser:
+- 🌟 **[Landing Page](https://kareem-ghazi.github.io/emf-vis/)**: Overview, 3D interactive hero, feature showcase, and mathematical highlights.
+- 🚀 **[Interactive 3D Visualizer](https://kareem-ghazi.github.io/emf-vis/app.html)**: Fullscreen WebGL simulation laboratory with scientific calculators.
 
 ---
 
@@ -57,7 +58,11 @@ emf-vis/
 │   ├── ARCHITECTURE.md       # Architecture, camera math, and data flow
 │   ├── MATHEMATICAL_FORMULATIONS.md # Vector calculus & coordinate equations
 │   └── TESTING.md            # Unit testing guide & test architecture
-├── dist/                     # Optimized production bundle (created on build)
+├── dist/                     # Optimized production web bundle (created on build)
+├── dist-electron/            # Desktop native executable distribution (created on desktop build)
+├── electron/                 # Electron desktop main process & preload bridges
+│   ├── main.cjs              # Application window lifecycle & native menu
+│   └── preload.cjs           # Context isolation bridge
 ├── public/                   # Static assets & favicon.svg
 ├── src/                      # Application source code
 │   ├── topics/               # Individual visualizer topic modules
@@ -65,6 +70,8 @@ emf-vis/
 │   │   ├── curl.js           # The Curl topic
 │   │   ├── divergence.js     # The Divergence topic
 │   │   └── gradient.js       # The Gradient topic
+│   ├── landing.css           # Landing page stylesheet
+│   ├── landing.js            # Landing page interactive 3D hero animation
 │   ├── main.js               # Application bootstrap & 3D render loop
 │   ├── math.js               # Analytical & numerical vector calculus engine
 │   ├── style.css             # Glassmorphic dark UI design system
@@ -72,9 +79,10 @@ emf-vis/
 ├── tests/                    # Vitest unit test suite (31 tests)
 │   ├── camera.test.js        # Mobile camera framing & frustum tests
 │   └── math.test.js          # Calculus transformations & operator tests
-├── index.html                # Main entry HTML
-├── vite.config.js            # Vite build configuration (base: './')
-├── package.json              # Project dependencies & test scripts
+├── app.html                  # Main 3D WebGL visualizer application
+├── index.html                # Modern product landing page
+├── vite.config.js            # Vite multi-page build configuration (base: './')
+├── package.json              # Project dependencies, build scripts, & electron config
 ├── LICENSE.txt               # MIT License (2026 Kareem Ghazi)
 └── README.md                 # Project documentation
 ```
@@ -109,7 +117,9 @@ npm run test:watch
 - **Vanilla JavaScript (ES2022+)**: Modular, zero-framework architecture for fast load times and clean code.
 - **Three.js (r160)**: WebGL-accelerated 3D scene rendering, custom geometries, instanced markers, and particle engines.
 - **KaTeX (v0.16.9)**: High-performance LaTeX typography for equations in the HUD and calculators.
-- **Vite (v6)**: Next-generation frontend tooling and production bundler.
+- **Vite (v6)**: Next-generation frontend tooling and multi-page production bundler.
+- **Electron (v45)** & **electron-builder**: Cross-platform desktop runtime, secure context isolation bridges, and standalone native packaging.
+- **Vitest**: Automated unit testing for coordinate transformations, metric scale factors, vector calculus identities, and camera projection math.
 
 ---
 
@@ -136,6 +146,36 @@ npm run test:watch
    npm run dev
    ```
    Open the local URL displayed in the terminal (usually `http://localhost:5173`).
+
+---
+
+## 💻 Desktop Application (Electron)
+
+**emf.vis** provides a native desktop build powered by Electron, delivering direct GPU WebGL acceleration with 100% offline capability, dedicated window controls, and concept shortcut keys:
+
+### Running Desktop App in Development
+```bash
+npm run electron:dev
+```
+
+### Packaging Windows Desktop Standalone Executable
+To package a standalone unpacked Windows executable (`x64`):
+```bash
+npm run build:desktop
+```
+The executable is generated at:
+`dist-electron/win-unpacked/emf.vis.exe`
+
+### Desktop Features
+- ⚡ **Direct GPU Acceleration**: Runs natively with high-performance WebGL and zero browser overhead.
+- 🌐 **100% Offline Capability**: Fully functional in offline lab environments and classrooms.
+- ⌨️ **Dedicated Keyboard Shortcuts**:
+  - `Ctrl + Shift + 1`: 1. Coordinate Systems
+  - `Ctrl + Shift + 2`: 2. The Gradient ($\nabla V$)
+  - `Ctrl + Shift + 3`: 3. The Divergence ($\nabla \cdot \vec{A}$)
+  - `Ctrl + Shift + 4`: 4. The Curl ($\nabla \times \vec{A}$)
+  - `Ctrl + 0`: Show Landing Page
+  - `Ctrl + 1`: Return to 3D Visualizer
 
 ---
 
