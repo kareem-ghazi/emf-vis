@@ -182,6 +182,10 @@ body.landing-page {
   cursor: pointer;
 }
 
+.mobile-nav-cta {
+  display: none;
+}
+
 /* ==========================================================================
    Hero Section
    ========================================================================== */
@@ -770,6 +774,41 @@ body.landing-page {
 }
 
 @media (max-width: 768px) {
+  .landing-container {
+    padding: 0 16px;
+  }
+
+  .brand-wrapper {
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .nav-actions .btn-launch-nav {
+    display: none !important;
+  }
+
+  .mobile-nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 18px;
+    padding: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+  }
+
+  .mobile-nav-btn:active {
+    background: rgba(255, 255, 255, 0.12);
+    transform: scale(0.96);
+  }
+
   .nav-links {
     display: none;
   }
@@ -781,14 +820,41 @@ body.landing-page {
     top: 100%;
     left: 0;
     width: 100%;
-    background: rgba(5, 7, 13, 0.95);
-    padding: 20px;
+    background: rgba(5, 7, 13, 0.96);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    padding: 20px 20px 24px;
     border-bottom: 1px solid var(--border-subtle);
     gap: 16px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7);
   }
 
-  .mobile-nav-btn {
+  .nav-links.active .mobile-nav-cta {
     display: block;
+    margin-top: 4px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .btn-launch-nav-mobile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    background: linear-gradient(135deg, #0284c7, #2563eb);
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    padding: 11px 18px;
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+    transition: all 0.2s ease;
+  }
+
+  .btn-launch-nav-mobile:active {
+    transform: scale(0.98);
   }
 
   .hero-title {

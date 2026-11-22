@@ -358,5 +358,11 @@ document.addEventListener('DOMContentLoaded', () => {
     mobileNavToggle.addEventListener('click', () => {
       mobileNavMenu.classList.toggle('active');
     });
+
+    mobileNavMenu.querySelectorAll('a').forEach((link) => {
+      link.addEventListener('click', () => {
+        mobileNavMenu.classList.remove('active');
+      });
+    });
   }
 });
